@@ -33,8 +33,7 @@
 .pc-compact .pc-open-photo img { aspect-ratio: 1.75; }
 .pc-compact .pc-fact { display: block; font-size: 12px; }
 .pc-compact .pc-links { gap: 2px 10px; font-size: 12px; }
-.pc-live :is(gmp-advanced-place-details, gmp-advanced-place-search, gmp-advanced-place-details-compact),
-.ap-google-search gmp-place-search {
+.pc-live :is(gmp-advanced-place-details, gmp-advanced-place-search, gmp-advanced-place-details-compact) {
   color-scheme: light;
   display: block; width: 100%; max-width: 100%; border: none; border-radius: 0; background-color: #fff;
   --gmp-mat-color-surface: #fff;

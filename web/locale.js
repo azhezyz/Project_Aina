@@ -24,6 +24,7 @@
   }
 
   const link = document.getElementById("language-switch");
+  if (!link) return;
   const next = en ? "zh-CN" : "en";
   url.searchParams.set("lang", next);
   link.href = url.href;

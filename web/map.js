@@ -28,12 +28,13 @@
   let canvas, ctx, callbacks, places = [], placeById = new Map();
   let width = 0, height = 0, scale = 0.6, center = [900, 1180], bottom = 0, frame = 0;
   let routeList = [], activeId, selectedId, visible = new Set(), pinned = new Set();
-  let layers, geometry, pathCache = new Map(), placeHits = [], lineHits = [], badgeHits = [], scheduled = false;
+  let layers, pathCache = new Map(), placeHits = [], lineHits = [], badgeHits = [], scheduled = false;
   let cameraRoutes = '', routeExtent = [300, 700, 1380, 1700];
   let resizeObserver, isDefault = true;
   let basemapState = 'offline', wantsGoogle = false, pendingGoogle = null;
   let googleHost = null, googleMap = null, nativeErrorObserver = null, pendingFocus = null;
   let nativeLayer = null, nativeSignature = '', focusedRouteId = null, focusedExtent = null;
+  let appearance = window.atlasLayerPrefs.defaults, streetView = null;
   const googleListeners = [];
   let sheetHeight = 0, attributionGap = 0;
   const pointers = new Map();
@@ -129,6 +130,7 @@
       clearTimeout(job.timer);
       job.listener?.remove();
     }
+    if (state !== 'google') streetView?.close();
     if (discard || state === 'error' || (state === 'offline' && job)) {
       nativeErrorObserver?.disconnect();
       nativeErrorObserver = null;
@@ -136,6 +138,8 @@
       nativeLayer?.dispose();
       nativeLayer = null;
       nativeSignature = '';
+      streetView?.dispose();
+      streetView = null;
       googleHost?.remove();
       googleMap = null;
       googleHost = null;
@@ -188,11 +192,12 @@
       watchNativeErrors(nativeSurface);
       const camera = cameraOptions();
       googleMap = new sdk.Map(nativeSurface, {
-        ...camera, mapTypeId: 'roadmap', renderingType: 'VECTOR', isFractionalZoomEnabled: true,
-        disableDefaultUI: true, clickableIcons: true, gestureHandling: 'greedy',
-        keyboardShortcuts: true, tilt: 0, heading: 0,
-        tiltInteractionEnabled: false, headingInteractionEnabled: false
+        ...camera, ...window.atlasGoogleAppearance.options(appearance),
+        // Local feature styling is supported on raster maps without a cloud map ID.
+        renderingType: 'RASTER', isFractionalZoomEnabled: true, tilt: 0,
+        disableDefaultUI: true, streetViewControl: false, gestureHandling: 'greedy', keyboardShortcuts: true
       });
+      streetView = window.atlasGoogleAppearance.streetView(googleMap);
       nativeLayer = window.atlasNativeMap.connect(googleMap,sdk,callbacks);
       // Remember the resting camera for the toolbar and offline fallback only.
       googleListeners.push(googleMap.addListener('idle', readGoogleCamera));
@@ -262,9 +267,9 @@
   }
 
   function prepareLayers() {
-    geometry = window.kyotoGeo;
-    layers = {};
-    for (const [kind, encoded] of Object.entries(geometry.layers)) {
+    const geometry = window.kyotoGeo;
+    layers = geometry?.layers ? {} : null;
+    for (const [kind, encoded] of Object.entries(geometry?.layers || {})) {
       const groups = new Map();
       for (const feature of encoded) {
         const points = decode(feature);
@@ -284,7 +289,7 @@
       }
       layers[kind]=Array.from(groups.values());
     }
-    for (const [key,value] of Object.entries(geometry.paths)) pathCache.set(key,decode(value));
+    for (const [key,value] of Object.entries(geometry?.paths || {})) pathCache.set(key,decode(value));
   }
 
   const districts = [
@@ -404,17 +409,22 @@
     ctx.restore();
   }
 
-  function lineFor(a,b) {
-    if(a===b)return [];
+  function bundledPath(a,b) {
     const key=[a,b].sort().join('|');
     const row=pathCache.get(key);
     if(row)return a<b?row:row.slice().reverse();
-    return networkLeg(a,b)?.points || [];
+  }
+  function getWalkingSegment(a,b) {
+    if(a===b)return null;
+    const points=bundledPath(a,b);
+    return points ? {points,source:'osm'} : networkLeg(a,b);
   }
   function networkLeg(a,b) {
     const from=placeById.get(a),to=placeById.get(b);
     const local=hasLocation(from) && hasLocation(to) ? window.atlasWalking?.leg(from,to) : null;
-    return local || (basemapState==='google' && from && to ? window.atlasGoogleWalking?.leg(from,to) : null);
+    if(local)return {...local,source:'osm'};
+    const google=basemapState==='google' && from && to ? window.atlasGoogleWalking?.leg(from,to) : null;
+    return google ? {...google,source:'google'} : null;
   }
   function hasLocalLeg(from,to) {
     if(!from || !to)return false;
@@ -427,7 +437,7 @@
     for (let i=1; i<stops.length; i++) {
       if (stops[i-1]===stops[i]) continue;
       const key=[stops[i-1],stops[i]].sort().join('|');
-      const distance=window.kyotoGeo?.distances[key] ?? networkLeg(stops[i-1],stops[i])?.meters;
+      const distance=window.kyotoGeo?.distances?.[key] ?? networkLeg(stops[i-1],stops[i])?.meters;
       if (!Number.isFinite(distance)) return null;
       total+=distance;
     }
@@ -439,8 +449,8 @@
     for(let i=1;i<route.stops.length;i++) {
       const a=route.stops[i-1],b=route.stops[i];
       if(a===b)continue;
-      const line=lineFor(a,b);
-      if(!line.length) current=null;
+      const line=getWalkingSegment(a,b)?.points;
+      if(!line?.length) current=null;
       else if(current && Math.hypot(current.at(-1)[0]-line[0][0],current.at(-1)[1]-line[0][1])<2) {
         for(let j=1;j<line.length;j++)current.push(line[j]);
       }
@@ -491,7 +501,7 @@
   function refreshNative() {
     if (basemapState!=='google' || !nativeLayer) return;
     const shown=routeList.filter(r=>visible.has(r.id)).sort((a,b)=>Number(a.id===activeId)-Number(b.id===activeId));
-    const signature=JSON.stringify([cameraRoutes,activeId,selectedId,[...pinned],shown.map(r=>[r.id,r.name,r.color]),
+    const signature=JSON.stringify([appearance.labels,cameraRoutes,activeId,selectedId,[...pinned],shown.map(r=>[r.id,r.name,r.color]),
       places.map(p=>[p.id,p.name,p.short,p.lat,p.lng])]);
     if(signature===nativeSignature)return;
     nativeSignature=signature;
@@ -509,7 +519,12 @@
       }
     }
     nativeLayer.update({routes:shown.map(route=>({route,parts:routeParts(route)})),places:[...displayPlaces.values()],
-      placeById:displayPlaces,pinned,activeId,selectedId});
+      placeById:displayPlaces,pinned,activeId,selectedId,labels:appearance.labels,showBackgroundPlace});
+  }
+
+  function showBackgroundPlace(place) {
+    const labels=appearance.labels;
+    return labels.master && (place.icon==='coffee' ? labels.business : labels.attractions);
   }
 
   // Parallel screen-space lanes keep shared OSM road segments individually clickable.
@@ -647,12 +662,15 @@
   }
 
   function backdropLabels() {
+    if (!appearance.labels.master) return;
     const dense=scale>.77;
-    for(let i=0;i<roadLabels.length;i++){
-      const [lat,lng,label,angle]=roadLabels[i], [x,y]=loc(lat,lng);
-      if(!onscreen(x,y) || (!dense && i%3===2))continue;
-      ctx.save();ctx.translate(x,y);ctx.rotate(angle*Math.PI/180);
-      textLabel(label,0,0,fonts(10,500),'#92928b','center',2.8);ctx.restore();
+    if (appearance.labels.roads) {
+      for(let i=0;i<roadLabels.length;i++){
+        const [lat,lng,label,angle]=roadLabels[i], [x,y]=loc(lat,lng);
+        if(!onscreen(x,y) || (!dense && i%3===2))continue;
+        ctx.save();ctx.translate(x,y);ctx.rotate(angle*Math.PI/180);
+        textLabel(label,0,0,fonts(10,500),'#92928b','center',2.8);ctx.restore();
+      }
     }
     for(const [lat,lng,name,english] of districts){
       const [x,y]=loc(lat,lng);
@@ -683,6 +701,7 @@
       const stop=stops.get(place.id);
       const coffee=place.icon==='coffee';
       const marked=pinned.has(place.id), sel=place.id===selectedId;
+      if (!stop && !marked && !sel && !showBackgroundPlace(place)) continue;
       const priority=(stop?80:0)+(sel?35:0)+(coffee?32:0)+(marked?20:0);
       const size=stop?12.5:(marked?13:(coffee?11:(sel?11:8.4)));
       rows.push({id:place.id,x,y,place,stop,coffee,marked,sel,priority,size});
@@ -711,6 +730,7 @@
     }
     const sorted=rows.sort((a,b)=>b.priority-a.priority);
     for(const r of sorted){
+      if (r.stop && !appearance.labels.stopNames) continue;
       const name=r.place.short || r.place.name;
       const main=r.stop || r.sel,high=main||r.coffee||r.marked;
       const second=!en && main && (scale>.48 || width>650) ? r.place.en:'';
@@ -744,10 +764,14 @@
     }
     const search=document.getElementById('search')?.getBoundingClientRect();
     if(search)reserved.push([search.left-6,search.top-6,search.right+6,search.bottom+6]);
-    for(const row of projected){
-      if(!badgeHits.some(hit=>hit.id===row.route.id))routeBadge(row,reserved);
+    if (appearance.labels.routeNames) {
+      for(const row of projected){
+        if(!badgeHits.some(hit=>hit.id===row.route.id))routeBadge(row,reserved);
+      }
     }
+    if (!appearance.labels.master) return;
     for(const [lat,lng,name,kind] of contextLabels){
+      if (kind==='train' ? !appearance.labels.transit : !appearance.labels.attractions) continue;
       const [x,y]=loc(lat,lng);
       if(!onscreen(x,y) || (width<600 && scale<.4))continue;
       ctx.font=fonts(11.5,520);
@@ -948,7 +972,19 @@
     focusPlace,
     focusRoute,
     hasLocalLeg,
+    getWalkingSegment,
+    getOfflineCartography(){return {layers, bundledPath};},
     getSearchBias(){return basemapState==='google' ? googleMap?.getBounds() : undefined;},
+    setAppearance(next) {
+      const previous = appearance;
+      appearance = next;
+      if (googleMap) window.atlasGoogleAppearance.update(googleMap,previous,appearance);
+      refreshNative();
+      drawSoon();
+    },
+    openStreetView(){return basemapState === 'google' && streetView ? streetView.open() : Promise.resolve('offline');},
+    closeStreetView(){streetView?.close();},
+    getStreetViewState(){return streetView?.state() || 'closed';},
     setGoogleBasemap,
     getBasemapState(){return basemapState;},
     getRouteMeters:meters

@@ -1,4 +1,4 @@
-"""Run Project_Aina locally, or store its Google Maps browser key on Windows."""
+"""Run Project_Aina locally and configure its local service credentials."""
 
 import argparse
 import ctypes
@@ -17,12 +17,17 @@ import sys
 import tempfile
 from urllib.parse import unquote, urlsplit
 
+import art_backend
+import google_art
+
 
 PORT = 5173
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 KEY_ENV = "AINA_GOOGLE_MAPS_BROWSER_KEY"
 DIAGNOSTIC_FILE = "google-maps-diagnostic.json"
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+OPENAI_KEY_FILE = "openai-key.dpapi"
+ART_EDITOR = art_backend.ArtMapEditor()
 
 
 class DataBlob(ctypes.Structure):
@@ -31,7 +36,7 @@ class DataBlob(ctypes.Structure):
 
 def dpapi(data, *, encrypt):
     if sys.platform != "win32":
-        raise ValueError(f"Windows is required for the key store. You can also set {KEY_ENV}.")
+        raise ValueError("Windows is required for the encrypted key store. On other platforms use an environment variable.")
     crypt = ctypes.WinDLL("crypt32", use_last_error=True)
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     operation = crypt.CryptProtectData if encrypt else crypt.CryptUnprotectData
@@ -102,6 +107,24 @@ def save_key(value):
     write_local_file("google-maps-key.dpapi", encrypted)
 
 
+def validated_openai_key(value):
+    if not re.fullmatch(r"[A-Za-z0-9._-]{8,1024}", value):
+        raise ValueError("Enter one OpenAI API key.")
+    return value
+
+
+def load_openai_key():
+    if os.environ.get("OPENAI_API_KEY"):
+        return validated_openai_key(os.environ["OPENAI_API_KEY"])
+    if sys.platform != "win32":
+        return ""
+    try:
+        secret = local_file(OPENAI_KEY_FILE).read_bytes()
+    except FileNotFoundError:
+        return ""
+    return validated_openai_key(dpapi(secret, encrypt=False).decode("ascii"))
+
+
 def billing_diagnostic(key):
     return {"keySha256": hashlib.sha256(key.encode("ascii")).hexdigest(), "code": "billing-disabled"}
 
@@ -130,6 +153,7 @@ class SiteHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         super().end_headers()
 
@@ -165,6 +189,21 @@ class SiteHandler(BaseHTTPRequestHandler):
             if request.scheme or request.netloc or not request.path.startswith("/"):
                 raise ValueError()
             path = unquote(request.path, errors="strict")
+            if path == "/api/art-map/status":
+                if not self.config_allowed(hosts[0].lower()):
+                    self.send_json(403, {"error": {"code": "forbidden", "message": "Open this atlas locally."}}, include_body)
+                    return
+                try:
+                    configured = bool(load_openai_key())
+                except (ValueError, OSError):
+                    self.send_json(503, {"error": {"code": "key_store", "message": "The OpenAI key store is unavailable."}}, include_body)
+                    return
+                self.send_json(200, {
+                    "configured": configured, "model": art_backend.MODEL,
+                    "styles": list(art_backend.STYLES), "maxImageBytes": art_backend.MAX_IMAGE_BYTES,
+                    "googleKyoto": google_art.enabled(),
+                }, include_body)
+                return
             if path == "/local-config.js":
                 if not self.config_allowed(hosts[0].lower()):
                     self.send_error(HTTPStatus.FORBIDDEN)
@@ -221,6 +260,77 @@ class SiteHandler(BaseHTTPRequestHandler):
         if include_body:
             self.wfile.write(body)
 
+    def send_json(self, status, payload, include_body=True):
+        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        if include_body:
+            self.wfile.write(data)
+
+    def read_art_request(self, maximum):
+        if self.headers.get_all("Transfer-Encoding") or self.headers.get_all("Content-Encoding"):
+            raise art_backend.ArtError(400, "invalid_request", "Send a JSON body with its length.")
+        if len(self.headers.get_all("Content-Type", [])) != 1 or self.headers.get_content_type() != "application/json":
+            raise art_backend.ArtError(415, "invalid_request", "Send application/json.")
+        lengths = self.headers.get_all("Content-Length", [])
+        if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,10}", lengths[0]):
+            raise art_backend.ArtError(400, "invalid_request", "A valid content length is required.")
+        size = int(lengths[0])
+        if size > maximum:
+            raise art_backend.ArtError(413, "too_large", "The map request exceeds the size limit.")
+        self.connection.settimeout(30)
+        try:
+            raw = self.rfile.read(size)
+        except TimeoutError:
+            raise art_backend.ArtError(408, "timeout", "The local upload timed out.") from None
+        if size != len(raw):
+            raise art_backend.ArtError(400, "invalid_request", "The upload was incomplete.")
+        return raw
+
+    def handle_art_post(self):
+        hosts = self.headers.get_all("Host", [])
+        host = hosts[0].lower() if len(hosts) == 1 else ""
+        try:
+            allowed = host in ALLOWED_HOSTS and self.headers.get_all("Origin") == ["http://" + host] and self.config_allowed(host)
+        except ValueError:
+            allowed = False
+        if not allowed:
+            raise art_backend.ArtError(403, "forbidden", "Generate maps from the local atlas page.")
+        if self.path == "/api/art-map/google-reference":
+            if not google_art.enabled():
+                raise art_backend.ArtError(403, "google_disabled", "Licensed Kyoto map capture has not been enabled.")
+            raw = self.read_art_request(4096)
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (ValueError, RecursionError):
+                raise art_backend.ArtError(400, "invalid_request", "Send a JSON object with map bounds.") from None
+            if not isinstance(payload, dict):
+                raise art_backend.ArtError(400, "invalid_request", "Send an object with map bounds.")
+            return google_art.capture(payload, host)
+        if self.path != "/api/art-map":
+            raise art_backend.ArtError(404, "not_found", "Unknown endpoint.")
+        raw = self.read_art_request(art_backend.MAX_REQUEST_BYTES)
+        try:
+            key = load_openai_key()
+        except (OSError, ValueError):
+            raise art_backend.ArtError(503, "key_store", "The OpenAI key store is unavailable.") from None
+        if not key:
+            raise art_backend.ArtError(503, "not_configured", "Configure an OpenAI API key on the local server.")
+        return {"image": ART_EDITOR.generate(raw, key)}
+
+    def do_POST(self):
+        try:
+            try:
+                payload = self.handle_art_post()
+            except (art_backend.ArtError, google_art.CaptureError) as exc:
+                self.send_json(exc.status, {"error": {"code": exc.code, "message": str(exc)}})
+                return
+            self.send_json(200, payload)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            pass
+
     def do_GET(self):
         self.serve(include_body=True)
 
@@ -233,10 +343,24 @@ def main():
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--set-key", action="store_true", help="enter the browser key in a hidden terminal prompt")
     group.add_argument("--set-key-stdin", action="store_true", help="read the browser key from a noninteractive pipe")
+    group.add_argument("--set-openai-key", "--set-openai-key-stdin", action="store_true", help="store an OpenAI API key from a hidden prompt or a redirected line")
+    group.add_argument("--enable-kyoto-art", action="store_true", help="enable licensed Kyoto Google road-map capture on this computer")
     group.add_argument("--record-billing-disabled", action="store_true", help="record a confirmed billing error for the current key")
     group.add_argument("--clear-diagnostic", action="store_true", help="remove the saved Google Maps diagnostic")
     args = parser.parse_args()
     try:
+        if args.enable_kyoto_art:
+            google_art.enable()
+            print("Enabled licensed Kyoto map capture for this local installation.")
+            return 0
+        if args.set_openai_key:
+            if sys.stdin.isatty():
+                key = getpass.getpass("OpenAI API key (hidden): ")
+            else:
+                key = sys.stdin.buffer.read(1027).decode("ascii").removesuffix("\n").removesuffix("\r")
+            write_local_file(OPENAI_KEY_FILE, dpapi(validated_openai_key(key).encode("ascii"), encrypt=True))
+            print("OpenAI API key saved for this Windows user.")
+            return 0
         if args.record_billing_disabled:
             key = load_key()
             if not key:
@@ -269,7 +393,7 @@ def main():
         return 0
     except (OSError, ValueError, EOFError) as error:
         # Decode exceptions can include fragments of user input.
-        message = "Input must contain one ASCII browser key." if isinstance(error, UnicodeError) else str(error)
+        message = "Input must contain one ASCII API key." if isinstance(error, UnicodeError) else str(error)
         print(message, file=sys.stderr)
         return 1
     return 0

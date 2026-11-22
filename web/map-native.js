@@ -76,16 +76,21 @@
           } else {
             button.dataset.placeId = item.id;
             button.classList.toggle("has-label",item.label);
+            button.toggleAttribute("data-name-hidden",item.hideName);
             button.classList.toggle("is-small",!item.mark && !item.selected);
             button.classList.toggle("is-current",item.selected);
             row.side=item.side;
             row.labelWidth=Math.min(165,Math.max(36,item.text.length*8));
-            const mark = document.createElement("span"), title = document.createElement("span");
+            const mark = document.createElement("span");
             mark.className = "aina-map-number";
             mark.textContent = item.mark;
-            title.className = "aina-map-place-title";
-            title.textContent = item.text;
-            button.replaceChildren(mark,title);
+            button.replaceChildren(mark);
+            if (!item.hideName) {
+              const title = document.createElement("span");
+              title.className = "aina-map-place-title";
+              title.textContent = item.text;
+              button.append(title);
+            }
             if (item.letter && item.letter !== item.mark) {
               const sup = document.createElement("sup");
               sup.textContent = item.letter;
@@ -103,7 +108,7 @@
     const labels = new Labels();
     labels.setMap(map);
 
-    function update({places, routes, placeById, pinned, selectedId, activeId}) {
+    function update({places, routes, placeById, pinned, selectedId, activeId,labels:visibility,showBackgroundPlace}) {
       const items=[], stops=new Map(), keep=new Set(), badgeAnchors=new Map();
       const pins = new Map([...pinned].map((id,i)=>[id,String.fromCharCode(65+i)]));
       // A wider, lower stroke leaves individually clickable edges when walks share a street.
@@ -146,6 +151,7 @@
           }
           row.geometry=geometry;row.style=style;
         });
+        if (!visibility.routeNames) continue;
         const longest=parts.reduce((best,p)=>p.length>best.length?p:best,[]);
         const first=route.stops.map(id=>placeById.get(id)).find(p=>p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
         if (!first) continue;
@@ -165,7 +171,7 @@
       for(const p of places) {
         if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
         const stop=stops.get(p.id),letter=pins.get(p.id)||"",selected=p.id===selectedId;
-        if (p.dynamic && !stop && !letter && !selected) continue;
+        if (!stop && !letter && !selected && (p.dynamic || !showBackgroundPlace(p))) continue;
         const text=p.short||p.name||t("地点","Place"),mark=stop?String(stop.number):letter;
         let side="east";
         if(stop) {
@@ -181,7 +187,8 @@
           if(near.length)side=Math.abs(east)>Math.abs(north) ? (east>0?"west":"east") : (north>0?"south":"north");
         }
         items.push({kind:"place",id:p.id,position:{lat:p.lat,lng:p.lng},mark,letter,selected,
-          side,text,label:Boolean(stop||letter||selected),description:(stop?t("第 "+stop.number+" 站 · ","Stop "+stop.number+" · "):"")+text,
+          side,text,label:Boolean(stop||letter||selected),hideName:Boolean(stop && !visibility.stopNames),
+          description:(stop?t("第 "+stop.number+" 站 · ","Stop "+stop.number+" · "):"")+text,
           color:stop?routeColor(stop.route):letter?"#6658ac":"#8a755f",
           priority:selected?24:stop?20:letter?18:8});
       }

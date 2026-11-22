@@ -114,7 +114,7 @@
   }
 
   function load(name) {
-    if (!["maps", "places", "routes"].includes(name)) return Promise.reject(new Error("Unknown Maps library"));
+    if (!["maps", "places", "routes", "streetView"].includes(name)) return Promise.reject(new Error("Unknown Maps library"));
     if (!apiKey || authError) return Promise.reject(authError || new Error("Google Maps key missing"));
     if (libraries.has(name)) return libraries.get(name);
     let timer, denied;

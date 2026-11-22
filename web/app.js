@@ -39,7 +39,9 @@
     places, routes, activeRouteId: ids.has(restored?.activeRouteId) ? restored.activeRouteId : routes[0]?.id ?? null,
     visibleIds: initialVisible, editingRouteId: null,
     pinnedIds: Array.isArray(restored?.pinnedIds) ? [...new Set(restored.pinnedIds.filter(id => byId.has(id)))].slice(0, 2) : [],
-    view: "routes", selectedId: null, query: "", webBack: "place"
+    view: "routes", selectedId: null, webBack: "place",
+    appearance: window.atlasLayerPrefs.read(), basemap: map.getBasemapState(),
+    streetView: "closed", streetViewMessage: "", capturingMap:false, captureMessage:""
   };
   const palette = ["#3272a1", "#84619d", "#b25156", "#417943", "#087e83", "#c36138"];
   const recentlyDeleted = [];
@@ -99,7 +101,7 @@
   }
   function watchMapLabels() {
     const enabled = window.AINA_CONFIG?.googlePlaceNamesEnabled === true && map.getBasemapState() === "google";
-    watchTargets(visiblePins, mapTargets, enabled ? document.querySelectorAll(".aina-map-place[data-place-id],.aina-map-route[data-route-id]") : []);
+    watchTargets(visiblePins, mapTargets, enabled ? document.querySelectorAll(".aina-map-place[data-place-id]:not([data-name-hidden]),.aina-map-route[data-route-id]") : []);
     runNames();
   }
   function watchPanelLabels() {
@@ -173,9 +175,9 @@
     chip.querySelector("small").textContent = n + t(" 站", n === 1 ? " stop" : " stops");
   }
   function setView(view, level = "half") {
+    if (state.view === "layers" && view !== "layers" && state.streetView === "loading") map.closeStreetView();
     if (state.view !== view) body.scrollTop = 0;
     state.view = view;
-    if (view !== "search") { query.blur(); query.value = ""; state.query = ""; }
     render();
     sheet.setLevel(level);
     updateEditingChip();
@@ -187,8 +189,8 @@
   window.addEventListener("aina-language-changing", event => {
     const nextLang = event.detail?.lang;
     if (!["en","zh-CN"].includes(nextLang) || nextLang === lang) return;
-    const {view,query,selectedId,editingRouteId,webBack} = state;
-    const handoff = {nextLang, time:Date.now(), view, query, selectedId, editingRouteId, webBack,
+    const {view,selectedId,editingRouteId,webBack} = state;
+    const handoff = {nextLang, time:Date.now(), view, query:query.value, selectedId, editingRouteId, webBack,
       nameTarget, namedStop, nameDraft:body.querySelector('.name-form input')?.value,
       level:sheet.getLevel(), windows:windows.snapshot()};
     try { sessionStorage.setItem(handoffKey, JSON.stringify(handoff)); } catch { /* Optional per-tab state. */ }
@@ -209,13 +211,13 @@
     if (byId.has(handoff.selectedId)) state.selectedId = handoff.selectedId;
     nameTarget = ids.has(handoff.nameTarget) ? handoff.nameTarget : null;
     namedStop = byId.has(handoff.namedStop) ? handoff.namedStop : null;
-    const allowed = {routes:true, search:true, compare:true, place:state.selectedId,
+    const allowed = {routes:true, layers:true, compare:true, place:state.selectedId,
       route:state.editingRouteId, name:nameTarget || namedStop, web:byId.get(state.selectedId)?.url};
     state.view = Object.hasOwn(allowed,handoff.view) && allowed[handoff.view] ? handoff.view : "routes";
     if (handoff.view === "web" && state.view !== "web" && state.selectedId) state.view = "place";
     state.webBack = handoff.webBack === "compare" ? "compare" : "place";
-    if (state.view === "search" && typeof handoff.query === "string") query.value = state.query = handoff.query;
-    sheet.setLevel(handoff.level);
+    if (typeof handoff.query === "string") query.value = handoff.query.slice(0,query.maxLength);
+    sheet.setLevel(handoff.view === "search" ? "closed" : handoff.level);
     render();
     const field = body.querySelector('.name-form input');
     if (field && typeof handoff.nameDraft === "string") field.value = handoff.nameDraft;
@@ -228,11 +230,6 @@
     pendingFocus = focus && !Number.isFinite(place.lat) ? id : null;
     state.selectedId = id;
     if (windows.isDesktop()) {
-      if (state.view === "search") {
-        query.blur();
-        sheet.setLevel("closed");
-        state.selectedId = id;
-      }
       map.setState(state);
       windows.open(id);
     } else setView("place");
@@ -245,11 +242,11 @@
     affected.forEach(updateEstimate);
     if (affected.length || state.pinnedIds.includes(place.id)) save();
   }
-  function googlePlace(data, fromWidget) {
-    const place = catalog.register(data, {fromWidget});
+  function googlePlace(data, fromPlaces = false) {
+    const place = catalog.register(data, {fromPlaces});
     if (!place) return;
     if (place.dynamic) refreshPlaceRoutes(place);
-    openPlace(place.id, fromWidget);
+    openPlace(place.id, fromPlaces);
     scheduleExpiry();
   }
   function scheduleExpiry() {
@@ -370,13 +367,68 @@
     };
     if (matchMedia("(pointer:fine)").matches) requestAnimationFrame(() => field.focus());
   }
+  function updateAppearance(prefs) {
+    if (state.streetView === "loading") map.closeStreetView();
+    state.appearance = prefs;
+    state.streetViewMessage = "";
+    map.setAppearance(prefs);
+    if (!window.atlasLayerPrefs.save(prefs)) {
+      notify(t("当前浏览器无法保存图层设置，本页仍可使用。","Layer settings will last for this page session."));
+    }
+    render();
+  }
+  async function toggleStreetView() {
+    if (state.streetView !== "closed") { map.closeStreetView(); return; }
+    state.streetViewMessage = "";
+    const result = await map.openStreetView();
+    if (state.view !== "layers" || result === "open" || result === "cancelled") return;
+    const messages = {
+      unavailable: t("地图中心附近没有街景。移动地图后再试。","No Street View imagery near the map center. Move the map and try again."),
+      offline: t("连接 Google 地图后即可查看街景。","Connect Google Maps to use Street View."),
+      error: t("街景暂时无法加载，请稍后重试。","Street View could not load. Please try again.")
+    };
+    state.streetViewMessage = messages[result] || messages.error;
+    render();
+  }
+  async function captureViewport() {
+    if (state.capturingMap || state.basemap !== "google" || state.appearance.type !== "roadmap" || state.streetView !== "closed") return;
+    state.capturingMap = true; state.captureMessage = "";
+    render();
+    try {
+      await window.atlasGoogleArt.downloadViewport(state.appearance.labels);
+      state.captureMessage = t("Google 地图截图已发送到浏览器下载。", "The Google screenshot is ready in your browser downloads.");
+    } catch (error) {
+      state.captureMessage = error.message || t("未能截取地图，请重试。", "Map capture failed. Try again.");
+    } finally {
+      state.capturingMap = false;
+      if (state.view === "layers") render();
+    }
+  }
   function act(type, value, extra) {
     const route = state.routes.find(r => r.id === value);
     switch (type) {
       case "googleSettings": window.atlasPlaceCard.settings(); break;
-      case "place": case "searchResult": openPlace(value, type === "searchResult" || byId.get(value)?.dynamic); break;
-      case "googleSearchResult": googlePlace(value, true); break;
+      case "layers":
+        state.streetViewMessage = ""; state.captureMessage = "";
+        setView("layers", sheet.getLevel() === "full" ? "full" : "half");
+        break;
+      case "mapType":
+        if (window.atlasLayerPrefs.types.includes(value) && (value === "roadmap" || state.basemap === "google")) {
+          if (state.streetView === "open") map.closeStreetView();
+          state.captureMessage = ""; updateAppearance({...state.appearance, type:value});
+        }
+        break;
+      case "mapLabel":
+        if (Object.hasOwn(state.appearance.labels, value)) {
+          const labels = state.appearance.labels;
+          updateAppearance({...state.appearance, labels:{...labels, [value]:!labels[value]}});
+        }
+        break;
+      case "streetView": void toggleStreetView(); break;
+      case "captureViewport": void captureViewport(); break;
+      case "place": openPlace(value, byId.get(value)?.dynamic); break;
       case "route": openRoute(value); break;
+      case "artMap": if (route) window.atlasArtMap.open(route); break;
       case "routes": state.selectedId = null; setView("routes"); break;
       case "pin": {
         if (!byId.has(value)) break;
@@ -459,7 +511,26 @@
 
   windows.mount({ container: $("place-windows"), byId, actions: act });
   $("map-source").addEventListener("click", () => window.atlasPlaceCard.settings());
+  let streetViewPanelLevel = "closed";
+  window.addEventListener("atlas:streetview-state", event => {
+    const previous = state.streetView;
+    state.streetView = event.detail.state;
+    $("atlas").toggleAttribute("data-street-view", state.streetView === "open");
+    if (state.streetView === "open" && previous !== "open") {
+      streetViewPanelLevel = sheet.getLevel();
+      sheet.setLevel("closed");
+    } else if (previous === "open" && state.streetView === "closed" && streetViewPanelLevel !== "closed") {
+      const level = streetViewPanelLevel;
+      streetViewPanelLevel = "closed";
+      setView("layers", level);
+      body.querySelector('[data-action="streetView"]')?.focus({preventScroll:true});
+      return;
+    }
+    render();
+  });
   window.addEventListener("atlas:basemap-state", event => {
+    state.basemap = event.detail.state;
+    state.streetViewMessage = "";
     const labels = {offline:t("离线底图","Offline map"),loading:t("正在连接 Google 地图","Connecting to Google Maps"),
       google:t("Google 底图","Google Maps"),error:t("离线底图 · 查看连接状态","Offline map · Check connection")};
     $("map-source").textContent = labels[event.detail.state] || t("京都步行地图","Kyoto walking map");
@@ -513,6 +584,7 @@
     requestName(existing);
     scheduleExpiry();
   });
+  map.setAppearance(state.appearance);
   map.setGoogleBasemap(window.atlasGoogle.isConfigured());
   if (map.getRouteMeters) state.routes.forEach(updateEstimate);
   sheet.mount({ sheet: $("sheet"), handle: $("sheet-handle"), body, onHeight: height => map.setBottom(height),
@@ -522,7 +594,9 @@
     },
     onLevelChange: level => {
       if (level === "closed") {
-        state.view = "routes"; state.selectedId = null; state.query = ""; query.value = ""; query.blur(); render();
+        if (state.streetView === "loading") map.closeStreetView();
+        if (state.streetView === "open") { updateEditingChip(); watchPanelLabels(); return; }
+        state.view = "routes"; state.selectedId = null; render();
       } else { updateEditingChip(); watchPanelLabels(); }
     }
   });
@@ -535,16 +609,11 @@
   if (staleCoordinates || recoveredPlaces || restored?.schemaVersion !== 5 || !validRoutes) save();
   $("undo-delete").addEventListener("click", undoDelete);
   $("editing-chip").addEventListener("click", () => openRoute(state.editingRouteId));
-  query.addEventListener("focus", () => { state.query = query.value; setView("search"); });
-  query.addEventListener("input", () => { state.query = query.value; setView("search"); });
-  $("search").addEventListener("submit", event => {
-    event.preventDefault();
-    if (query.value.trim() && panels.searchGoogle(body)) { query.blur(); return; }
-    const first = body.querySelector('[data-action="searchResult"], [data-action="place"], [data-action="selectRoute"], [data-action="route"]');
-    if (first) first.click(); else query.blur();
-  });
+  window.atlasSearchBox.mount({input:query, onPlace:data => googlePlace(data, true),
+    onSettings:() => window.atlasPlaceCard.settings()});
   document.addEventListener("keydown", event => {
-    if (document.querySelector("dialog[open]")) return;
+    if (event.target === query || event.isComposing || document.querySelector("dialog[open]")) return;
+    if (state.streetView === "open") return;
     const editing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
     if (event.key === "/" && !editing) { event.preventDefault(); query.focus(); }
     if (event.key === "Escape" && (editing || sheet.getLevel() !== "closed")) { event.preventDefault(); query.blur(); sheet.setLevel("closed"); }

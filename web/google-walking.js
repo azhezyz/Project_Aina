@@ -5,6 +5,8 @@
   // Directions are directional and live only for this page session.
   const entries = new Map();
   const changedRoutes = new Set();
+  const posterRoutes = new Set();
+  let lastState = {routes: [], visibleIds: []};
   const caution = t("步行路线可能缺少人行道或步行道。", "This walking route may include streets without sidewalks or footpaths.");
   let wanted = new Map(), running = 0, version = 0;
   let updateScheduled = false;
@@ -88,11 +90,12 @@
   }
 
   function sync(state) {
+    lastState = state;
     const jobs = new Map(), warnings = new Set();
     if (enabled()) {
       const visible = new Set(state.visibleIds);
-      for (const route of state.routes) {
-        if (!visible.has(route.id)) continue;
+      const routes = new Set([...state.routes.filter(route => visible.has(route.id)), ...posterRoutes]);
+      for (const route of routes) {
         for (const [from, to] of pairs(route)) {
           if (locallyRoutable(from, to) || !(from.googlePlaceId || located(from)) ||
               !(to.googlePlaceId || located(to))) continue;
@@ -100,7 +103,7 @@
           if (!jobs.has(key)) jobs.set(key, {from, to, routeIds: []});
           jobs.get(key).routeIds.push(route.id);
           const data = entries.get(key)?.data;
-          if (data) for (const warning of [caution, ...data.warnings]) warnings.add(warning);
+          if (data && visible.has(route.id)) for (const warning of [caution, ...data.warnings]) warnings.add(warning);
         }
       }
     }
@@ -112,6 +115,14 @@
 
   function leg(a, b) {
     return a && b && enabled() ? entries.get(pairKey(a, b))?.data || null : null;
+  }
+
+  // A route can be hidden on the interactive map while its poster is open.
+  // Share the same bounded request queue and cache in both views.
+  function watchForPoster(route) {
+    posterRoutes.add(route);
+    sync(lastState);
+    return () => { posterRoutes.delete(route); sync(lastState); };
   }
 
   function summary(route) {
@@ -149,5 +160,5 @@
     sync(state);
   }
 
-  window.atlasGoogleWalking = {leg, summary, minutes, sync, retry, get version() { return version; }};
+  window.atlasGoogleWalking = {leg, summary, minutes, sync, retry, watchForPoster, get version() { return version; }};
 })();

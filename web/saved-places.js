@@ -77,7 +77,7 @@
     if (text(place.displayName)) result.name = text(place.displayName);
     return result;
   }
-  function register(data, {fromWidget = false, number} = {}) {
+  function register(data, {fromWidget = false, fromPlaces = false, number} = {}) {
     if (!validId(data?.placeId)) return null;
     let place = byGoogleId.get(data.placeId);
     if (place && !place.dynamic) return place;
@@ -90,13 +90,17 @@
       byId.set(place.id, place);
       all.push(place);
     }
-    if (text(data.name)) {
-      place.widgetName = text(data.name);
-      applyName(place);
-    }
+    const name = text(data.name);
+    if (name && fromPlaces) place.apiName = name;
+    else if (name) place.widgetName = name;
     if (validLocation(data.lat, data.lng)) {
       // A map click can be offset from the actual POI. Prefer its UI Kit location.
-      if (fromWidget || !fresh(place.locatedAt)) {
+      if (fromPlaces) {
+        if (place.apiPosition || !fresh(place.locatedAt)) {
+          place.apiPosition = {lat:data.lat, lng:data.lng};
+          place.locatedAt = Date.now();
+        }
+      } else if (fromWidget || !fresh(place.locatedAt)) {
         place.lat = data.lat;
         place.lng = data.lng;
         delete place.apiPosition;
@@ -104,6 +108,7 @@
         else delete place.locatedAt;
       }
     }
+    applyName(place);
     return place;
   }
   function label(place, value) {
@@ -172,5 +177,5 @@
     });
   }
   window.atlasSavedPlaces = {byId, widgetPlace, register, label, restore, recoverReferences, expire, snapshot, coordinateLifetime,
-    refreshNames, needsLookup, resolveName};
+    refreshNames, needsLookup, resolveName, isLookupPending: place => nameRequests.get(place.id) === "pending"};
 })();

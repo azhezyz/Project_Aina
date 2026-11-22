@@ -12,16 +12,30 @@
   <link rel="stylesheet" href="windows.css">
   <link rel="stylesheet" href="place-card.css">
   <link rel="stylesheet" href="google-basemap.css">
+  <link rel="stylesheet" href="search-suggestions.css">
+  <link rel="stylesheet" href="art-map.css">
 </head>
 <body>
   <main id="atlas" aria-label="步行旅行地图" data-en-aria-label="Walking atlas">
     <canvas id="map" tabindex="0" aria-label="京都东山步行地图，可拖动或缩放。按斜线搜索地点，按向上方向键打开卡片。" data-en-aria-label="Walking map of Higashiyama, Kyoto. Drag to pan or scroll to zoom. Press slash to search or the up arrow to open the bottom panel."></canvas>
     <form id="search" role="search" autocomplete="off">
       <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.5" cy="10.5" r="6.7"/><path d="m15.8 15.8 4.5 4.5" stroke-linecap="round"/></svg>
-      <input id="query" type="search" aria-label="搜索地点或路线" placeholder="搜索地点或路线" data-en-aria-label="Search places or routes" data-en-placeholder="Search places or routes" enterkeyhint="search" spellcheck="false" maxlength="90">
+      <input id="query" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-results" aria-label="在 Google 地图中搜索地点" placeholder="搜索地点或地址" data-en-aria-label="Search Google Maps for places" data-en-placeholder="Search places or addresses" enterkeyhint="search" spellcheck="false" maxlength="90">
       <kbd aria-hidden="true">/</kbd>
       <a id="language-switch" href="?lang=en" lang="en" hreflang="en" aria-label="切换为英文 · English">EN</a>
+      <div id="search-popover" hidden>
+        <ul id="search-results" role="listbox" aria-label="Google 地点搜索结果" data-en-aria-label="Google place suggestions"></ul>
+        <p id="search-note" hidden></p>
+        <button id="search-settings" type="button" hidden data-en="Map connection settings">地图连接设置</button>
+      </div>
+      <span id="search-feedback" role="status" aria-live="polite" aria-atomic="true"></span>
     </form>
+    <template id="search-place-option">
+      <li role="option" aria-selected="false">
+        <span class="search-place-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M19.1 10c0 5.3-7.1 11-7.1 11S4.9 15.3 4.9 10a7.1 7.1 0 1 1 14.2 0Z"/><circle cx="12" cy="10" r="2.3"/></svg></span>
+        <span class="search-place-text"><strong></strong><small></small></span>
+      </li>
+    </template>
     <button id="editing-chip" type="button" hidden title="展开路线编辑" data-en-title="Open the route editor"><i></i><span data-en="Editing">正在规划</span><strong></strong><small></small></button>
     <div id="place-windows"></div>
     <div class="credit"><span id="walking-map-note" hidden data-en="Walking routes may lack sidewalks or pedestrian paths.">步行路线可能缺少人行道或步行道。</span><button id="map-source" type="button" aria-live="polite" title="查看 Google 地图连接设置" data-en-title="Google Maps connection settings" data-en="Kyoto walking map">京都步行地图</button><b>·</b><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" data-en="Walking network © OpenStreetMap contributors">步行路网 © OpenStreetMap 贡献者</a></div>
@@ -58,10 +72,17 @@
   <script src="walking-network-data.js"></script>
   <script src="walking-network.js"></script>
   <script src="google-walking.js"></script>
+  <script src="layer-prefs.js"></script>
+  <script src="map-appearance.js"></script>
   <script src="map-native.js"></script>
   <script src="map.js"></script>
+  <script src="art-map-source.js"></script>
+  <script src="art-google.js"></script>
+  <script src="art-map.js"></script>
   <script src="sheet.js"></script>
   <script src="place-search.js"></script>
+  <script src="search-suggestions.js"></script>
+  <script src="search-box.js"></script>
   <script src="panels.js"></script>
   <script src="windows.js"></script>
   <script src="app.js"></script>

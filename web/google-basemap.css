@@ -60,6 +60,12 @@
 #atlas[data-basemap="google"] #place-windows {
   bottom: var(--atlas-attribution-space);
 }
+#atlas[data-street-view] #search,
+#atlas[data-street-view] #place-windows,
+#atlas[data-street-view] #editing-chip,
+#atlas[data-street-view] .credit {
+  display: none;
+}
 @media (min-width: 621px) {
   #atlas[data-basemap="google"] .credit {
     bottom: calc(var(--atlas-attribution-space) + 4px);

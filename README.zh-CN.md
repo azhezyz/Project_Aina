@@ -16,6 +16,22 @@
 
 内置两条可以直接打开的散步路线。**东山经典散步**从八坂神社经二年坂到清水寺。**祇园街巷漫步**从花见小路经建仁寺到 % Arabica 京都东山。两条路线可以同时显示，也可以分别收起。
 
+## 把京都路线做成海报
+
+这三张海报取景相同，Aina 在每幅插画上叠加**东山经典散步**的步行线和三个编号站点。点开任意一张可看大图，放大后能看清沿途的街巷。
+
+| 日式水彩 | 钢笔速写 | 复古版画 |
+| :---: | :---: | :---: |
+| <a href="docs/images/art-watercolor.webp"><img src="docs/images/art-watercolor.webp" width="225" alt="日式水彩京都地图，步行线从八坂神社经二年坂通往清水寺。"><br>1024&nbsp;×&nbsp;1280&nbsp;px&nbsp;·&nbsp;WebP</a> | <a href="docs/images/art-ink.webp"><img src="docs/images/art-ink.webp" width="225" alt="钢笔速写风格的京都东山地图，标出同一条步行线和三个编号站点。"><br>1024&nbsp;×&nbsp;1280&nbsp;px&nbsp;·&nbsp;WebP</a> | <a href="docs/images/art-woodcut.webp"><img src="docs/images/art-woodcut.webp" width="225" alt="复古版画风格的京都东山地图，标出前往清水寺的三站行程。"><br>1024&nbsp;×&nbsp;1280&nbsp;px&nbsp;·&nbsp;WebP</a> |
+
+三张海报的底图数据 © [OpenStreetMap 贡献者](https://www.openstreetmap.org/copyright)。
+
+打开一条已保存的路线，选择 **地图截图与艺术地图**。
+
+- **路线海报**在底图上标出步行线、站点编号和名称。标题和路线颜色可在本机修改，点 **下载路线海报** 可保存 1024 × 1280 的 PNG。
+- **生成艺术地图**会把底图和透明的路线标记图发送给 OpenAI，按所选画风生成插画。只有这一步会调用图像模型，可能产生费用。可在 **路线海报** 和 **艺术版** 之间切换对照，再把想保留的版本下载为 PNG。
+- **下载 Google 地图截图**适用于已获授权并启用京都内部预览的电脑。原始道路图 PNG 按站点取景，保留 Google 和地图数据方署名。即使暂时查不到步行路线，从地图或搜索中加入的店铺、景点也可按坐标取景。想截取屏幕上正在看的区域，可选 **地图图层 → 标准地图 → 截取当前视野**，截图会沿用当前的地图标注设置。
+
 ## 设计手记
 
 ### 看一家店，原来的路还在
@@ -50,15 +66,29 @@ cd Project_Aina
 
 启动后，在浏览器打开[中文版](http://127.0.0.1:5173/?lang=zh-CN)或[英文版](http://127.0.0.1:5173/?lang=en)。搜索框右侧的 **EN / 中文** 可以随时切换语言。网站会记住选择，两种语言共用已存路线和备注。行程按浏览器和网站地址保存在本机，下次用同一个地址打开，就能继续编辑。Windows 上也可以在 VS Code 的「终端 → 运行任务」中选择「启动 Project Aina」。
 
+### 配置艺术地图
+
+OpenAI 密钥配置在本地服务器上。Windows 用户运行 `py -3 server.py --set-openai-key`，按隐藏提示输入密钥，程序会为当前 Windows 用户加密保存到 `%LOCALAPPDATA%\Project_Aina\`。各平台也可以在启动服务器前设置环境变量 `OPENAI_API_KEY`。
+
+每台电脑默认使用内置的 OpenStreetMap 参考底图，覆盖内置京都地点之间的路线。如果已另行取得授权，允许将京都 Google 标准道路地图发送给 AI 生成内部预览，可在获授权的 Windows 电脑上运行 `py -3 server.py --enable-kyoto-art` 启用该来源。截图需要 Node.js、Chrome 或 Edge，以及在本地服务器上配置的 Google 地图浏览器密钥。
+
+截图服务使用日本国土交通省发布的行政区域数据，判断取景中心是否位于京都市内。[国土数值信息 · 2026 年行政区域](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
 ## 把地图带到其他城市
 
-连接 Google 后，可以直接点底图上的店铺和景点，或在搜索框输入地名和城市后按回车。地点卡按资料可用情况显示照片、营业时间、评分和官网。支持嵌入的官网可以留在地图窗口里看。
+连接 Google 后，可以直接点地图上的店铺和景点，也可以在顶部搜索框输入地名。框下最多显示 5 个 Google 推荐地点，输入城市名也能查找远处的地点。点选结果或用上下方向键和回车打开地点卡。搜索时底部控制栏保持原状。地点卡按资料可用情况显示照片、营业时间、评分和官网。支持嵌入的官网可以留在地图窗口里看。
 
 1. 在自己的 Google Cloud 项目中关联结算，启用 **Maps JavaScript API**、**Places UI Kit**、**Places API (New)** 和 **Routes API**。
 2. 创建浏览器 API 密钥，限制为以上服务，并允许实际使用的网站来源，例如 `http://127.0.0.1:5173/*`。
 3. 点击页面右下角的底图状态，在设置中输入密钥即可在当前标签页使用。Windows 可运行 `py -3 server.py --set-key` 将密钥加密保存到当前用户。其他系统也可在启动前设置环境变量 `AINA_GOOGLE_MAPS_BROWSER_KEY`。
 
 在线地图使用 Google 原生图层绘制站点与路线。京都东部优先使用内置步行路网，只有缺少的路段才向 Google Routes 请求。同一页面会复用已算出的路段。高级地点卡使用 Places UI Kit Pro，地点真名按需查询。在线服务的用量计入密钥所属项目。[Google Maps 密钥设置](https://developers.google.com/maps/documentation/javascript/get-api-key) · [Google Maps Platform 计费](https://developers.google.com/maps/billing-and-pricing/pricing)
+
+## 切换底图与标注
+
+上拉底部短横条，在「我的路线」里打开 **地图图层**。连接 Google 地图后，可以在标准地图、卫星影像和地形之间切换。把想看的街口移到地图中央，再点 **进入街景** 查看附近的全景。用街景内的返回按钮或 `Esc` 回到步行地图。街景取决于当地影像覆盖。
+
+商店与餐饮、景点与公园、公共交通和道路名称都可以单独开关。路线名称和站点名称另有开关，方便在卫星影像上只留下步行线和站序编号。图层偏好会保存在当前浏览器，两种语言共用这份设置。
 
 <details>
 <summary><strong>地图上的几个手势</strong></summary>
