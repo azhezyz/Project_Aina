@@ -1,4 +1,44 @@
 (() => {
+  const {en} = window.atlasLocale;
+  const areaNames = { "东山": "Higashiyama", "清水": "Kiyomizu", "祇园": "Gion",
+    "东山 · 八坂通": "Higashiyama · Yasaka-dori", "东山 · 高台寺": "Higashiyama · Kodai-ji" };
+  const kinds = { "神社": "Shrine", "街区": "Street", "寺院": "Temple", "咖啡馆": "Café", "公园": "Park" };
+  const englishDetails = {
+    yasaka: {
+      hours: "Shrine grounds open 24 hours. Office open 09:00–17:00.",
+      address: "625 Gionmachi Kitagawa, Higashiyama, Kyoto",
+      note: "Enter the shrine from Gion, then head south through the lanes of Higashiyama."
+    },
+    ninen: { note: "Take your time on the stone steps. Look between the wooden townhouses for glimpses of the Higashiyama hills." },
+    kiyomizu: {
+      hours: "Usually 06:00–18:00, until 18:30 in July and August. Special evening visits have separate hours.",
+      note: "The last stop on the walk. Leave time for the hillside steps and a look around the temple."
+    },
+    arabica: {
+      short: "% Arabica", address: "87-5 Hoshinocho, Higashiyama, Kyoto",
+      note: "Pick up a coffee near Yasaka-dori before continuing toward Ninenzaka."
+    },
+    coffee: {
+      short: "Maeda Coffee", hours: "07:00–16:00. Closed Mondays.",
+      address: "415 Shimokawara-cho, Shimokawara-dori, south of Yasaka Torii, Higashiyama, Kyoto",
+      note: "A traditional coffee shop near Kodai-ji where you can sit down for a break."
+    },
+    kennin: {
+      hours: "10:00–17:00. Last entry at 16:30.",
+      address: "Komatsucho, Yamato-oji-dori, south of Shijo, Higashiyama, Kyoto",
+      note: "Turn off Hanamikoji and into the temple grounds for an extra stop in Gion."
+    },
+    kodaiji: {
+      hours: "Usually 09:00–17:30. Last entry at 17:00. Special evening visits have separate hours.",
+      note: "Follow the lane along the stone wall to Kodai-ji. Ninenzaka is nearby."
+    },
+    maruyama: {
+      address: "Maruyamacho, Higashiyama, Kyoto",
+      note: "Just east of Yasaka Shrine, this park makes an easy place to pause along the way."
+    },
+    sannen: { note: "This stone staircase connects Ninenzaka with the Kiyomizu area." },
+    gion: { note: "Follow Gion’s main street south to reach Kennin-ji." }
+  };
   const places = [
     { id: "yasaka", googlePlaceId: "ChIJqewQoHkIAWAR6RokWp3Iesc", name: "八坂神社", local: "八坂神社", en: "Yasaka Shrine", kind: "神社", icon: "shrine", area: "祇园", lat: 35.00364, lng: 135.77852, hours: "境内全天可参拜，社务所 09:00–17:00", address: "京都市东山区祇园町北侧 625", url: "https://www.yasaka-jinja.or.jp/", source: "https://www.yasaka-jinja.or.jp/access/", note: "从祇园一侧进神社，再沿东山的小路向南走。" },
     { id: "ninen", googlePlaceId: "ChIJlwyrGNAIAWARNb5hUHdZruY", name: "二年坂", local: "二寧坂", en: "Ninenzaka", kind: "街区", icon: "street", area: "东山", lat: 34.99856, lng: 135.78071, hours: "", url: "https://www.kyoto-kankou.or.jp/info_search/125", note: "沿石阶慢慢走，两侧的町家之间能望见东山。" },
@@ -10,12 +50,16 @@
     { id: "maruyama", googlePlaceId: "ChIJm6JortwIAWARS811J4oNJus", name: "圆山公园", local: "円山公園", en: "Maruyama Park", kind: "公园", icon: "park", area: "东山", lat: 35.00368, lng: 135.78134, hours: "", address: "京都市东山区圆山町", url: "https://www.city.kyoto.lg.jp/kensetu/page/0000257049.html", source: "https://www.city.kyoto.lg.jp/kensetu/page/0000257049.html", note: "在八坂神社东侧，可作为散步途中的休息点。" },
     { id: "sannen", googlePlaceId: "ChIJr_gZonkIAWARB1xyACZNUKM", name: "三年坂", local: "産寧坂", en: "Sannenzaka", kind: "街区", icon: "street", area: "东山", lat: 34.99738, lng: 135.78148, hours: "", url: "https://ja.kyoto.travel/tourism/single01.php?category_id=8&tourism_id=691", note: "连接二年坂与清水一带的石阶街道。" },
     { id: "gion", googlePlaceId: "ChIJa_GfKgAJAWARdBs1o7x70k0", name: "花见小路", local: "花見小路", en: "Hanamikoji", kind: "街区", icon: "street", area: "祇园", lat: 35.00347, lng: 135.7747, hours: "", url: "https://ja.kyoto.travel/area/area06.php", note: "沿祇园的主街向南散步，可以走到建仁寺。" }
-  ].map(p => ({ short: p.name, url: "", ...p }));
+  ].map(p => {
+    const place = { short: p.name, url: "", ...p, zh: p.name };
+    if (en) Object.assign(place, { name: p.en, short: p.en, area: areaNames[p.area], kind: kinds[p.kind] }, englishDetails[p.id]);
+    return place;
+  });
   window.atlasData = {
     places,
     routes: [
-      { id: "east-walk", name: "东山经典散步", color: "#087e83", status: "complete", stops: ["yasaka", "ninen", "kiyomizu"], minutes: 29, km: 1.7 },
-      { id: "gion-walk", name: "祇园街巷漫步", color: "#c36138", status: "complete", stops: ["gion", "kennin", "arabica"], minutes: 19, km: 1.1 }
-    ]
+      { id: "east-walk", zh: "东山经典散步", en: "Higashiyama Highlights", color: "#087e83", status: "complete", stops: ["yasaka", "ninen", "kiyomizu"], minutes: 29, km: 1.7 },
+      { id: "gion-walk", zh: "祇园街巷漫步", en: "Gion Backstreets", color: "#c36138", status: "complete", stops: ["gion", "kennin", "arabica"], minutes: 19, km: 1.1 }
+    ].map(route => ({...route, name: en ? route.en : route.zh}))
   };
 })();

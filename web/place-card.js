@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
   const storageKey = "kyoto.google.browser-key";
   const byId = window.atlasSavedPlaces.byId;
   const rendered = new WeakMap();
@@ -25,21 +26,21 @@
   function openPhoto(p, a) {
     const d = $("place-photo-view"), img = d.querySelector("img");
     d.querySelector("h2").textContent = p.name;
-    img.src = a.src; img.alt = p.name + "实景";
+    img.src = a.src; img.alt = t(p.name + "实景", "Photo of " + p.name);
     d.querySelector(".pc-photo-caption").replaceChildren(attribution(a));
     d.showModal();
   }
   function photoFigure(p, a) {
     const figure = el("figure", "pc-figure");
     const open = el("button", "pc-open-photo");
-    open.type = "button"; open.setAttribute("aria-label", "放大" + p.name + "的实景照片");
+    open.type = "button"; open.setAttribute("aria-label", t("放大" + p.name + "的实景照片", "Enlarge photo of " + p.name));
     const img = el("img");
-    img.alt = p.name + "实景"; img.decoding = "async"; img.src = a.src;
+    img.alt = t(p.name + "实景", "Photo of " + p.name); img.decoding = "async"; img.src = a.src;
     img.addEventListener("error", () => figure.remove(), {once:true});
     open.append(img); open.addEventListener("click", () => openPhoto(p, a));
     const caption = el("figcaption");
     const details = el("details");
-    details.append(el("summary", "", "照片来源与许可"), attribution(a)); caption.append(details);
+    details.append(el("summary", "", t("照片来源与许可", "Photo credits & license")), attribution(a)); caption.append(details);
     figure.append(open,caption);
     return figure;
   }
@@ -56,7 +57,7 @@
     const actions = record.actions;
     button.hidden = typeof actions?.onRoute !== "function";
     button.disabled = Boolean(actions?.routeDisabled);
-    button.textContent = actions?.routeLabel || "从这里规划";
+    button.textContent = actions?.routeLabel || t("从这里规划", "Start a route here");
   }
   function localInfo(p,record) {
     const block = el("div","pc-local"), a = window.atlasPhotos[p.id];
@@ -65,8 +66,8 @@
     const category = [p.kind,p.area].filter(Boolean).join(" · ");
     if (category) block.append(el("p","pc-category",category));
     const facts = el("dl","pc-facts");
-    if (p.hours) facts.append(fact(p.kind === "咖啡馆" ? "营业时间" : "开放时间",p.hours));
-    if (p.address) facts.append(fact("地址",p.address));
+    if (p.hours) facts.append(fact(t(p.icon === "coffee" ? "营业时间" : "开放时间", "Opening hours"),p.hours));
+    if (p.address) facts.append(fact(t("地址", "Address"),p.address));
     const controls = el("div","pc-actions");
     const route = el("button","pc-route");
     route.type = "button";
@@ -77,7 +78,7 @@
     updateLocalAction(record);
     controls.append(route);
     if (/^https?:\/\//i.test(p.url || "")) {
-      const website = link("官网",p.url,"pc-website");
+      const website = link(t("官网", "Website"),p.url,"pc-website");
       website.addEventListener("click",event=>{
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !record.actions?.onWebsite) return;
         event.preventDefault();
@@ -90,7 +91,7 @@
     if (p.note) block.append(el("p","pc-note",p.note));
     if (p.source && p.source !== p.url) {
       const links = el("div","pc-links");
-      links.append(link("资料来源",p.source));
+      links.append(link(t("资料来源", "Source"),p.source));
       block.append(links);
     }
     return block;
@@ -157,20 +158,25 @@
     }
     const help = form.querySelector(".pc-help");
     if (project) {
-      help.replaceChildren("地图和地点卡片共用本机保存的浏览器密钥。要更换密钥，请在项目目录运行 ",
-        el("code", "", "py -3 server.py --set-key"), "，然后刷新页面。");
+      help.replaceChildren(t("地图和地点卡片共用本机保存的浏览器密钥。要更换密钥，请在项目目录运行 ", "The map and place cards use a browser key stored on this computer. To replace it on Windows, open the project folder and run "),
+        el("code", "", "py -3 server.py --set-key"), t("，然后刷新页面。", ", then refresh the page."));
     } else {
-      help.textContent = "密钥只保存在当前标签页。请在 Google Cloud 启用 Maps JavaScript API 和 Places UI Kit，并限制允许使用密钥的网站。";
+      help.textContent = t(
+        "密钥只保存在当前标签页。请在 Google Cloud 启用 Maps JavaScript API、Places UI Kit、Places API（新版）和 Routes API，并限制允许使用密钥的网站。",
+        "This tab stores the key for this session. Enable Maps JavaScript API, Places UI Kit, Places API (New) and Routes API in Google Cloud, then restrict the key to this website."
+      );
     }
     $("google-disconnect").hidden = source !== "session";
     const mapUnavailable = window.atlasMap?.getBasemapState() === "error";
     if (google.hasAuthError() || google.hasPlaceDenial() || mapUnavailable) {
-      status.textContent = google.hasAuthError() ? "Google Maps 已拒绝连接。" : google.hasPlaceDenial() ? "Google 拒绝了地点请求。" : "Google 底图暂时无法加载。";
-      if (!google.appendBillingHelp(status)) status.append("请检查浏览器密钥、网站来源限制、API 启用状态和项目结算。");
-    } else if (project) status.textContent = "当前使用本地项目配置。";
-    else if (source === "session") status.textContent = "当前标签页已设置密钥。更换或断开会刷新本页。";
-    else status.textContent = "当前使用随地图提供的地点资料。";
-    $("current-referrer").textContent = /^https?:$/.test(location.protocol) ? location.origin+"/*" : "请在在线版配置网站来源";
+      if (google.hasAuthError()) status.textContent = t("Google Maps 已拒绝连接。", "Google Maps denied the connection.");
+      else if (google.hasPlaceDenial()) status.textContent = t("Google 拒绝了地点请求。", "Google denied the place request.");
+      else status.textContent = t("Google 底图暂时无法加载。", "The Google basemap could not load.");
+      if (!google.appendBillingHelp(status)) status.append(t("请检查浏览器密钥、网站来源限制、API 启用状态和项目结算。", " Check the key, allowed website origins, enabled APIs and project billing."));
+    } else if (project) status.textContent = t("当前使用本地项目配置。", "Using the local project configuration.");
+    else if (source === "session") status.textContent = t("当前标签页已设置密钥。更换或断开会刷新本页。", "A browser key is set for this tab. Changing or disconnecting it reloads the page.");
+    else status.textContent = t("当前使用随地图提供的地点资料。", "Using the place details included with the map.");
+    $("current-referrer").textContent = /^https?:$/.test(location.protocol) ? location.origin+"/*" : t("请在在线版配置网站来源", "Set the allowed website origin when using the hosted app.");
   }
   function settings() {
     input.value = "";
@@ -185,7 +191,7 @@
       if (value) sessionStorage.setItem(storageKey,value);
       else sessionStorage.removeItem(storageKey);
     } catch {
-      status.textContent = "此浏览器未允许标签页存储。请在在线版或允许会话存储后重试。";
+      status.textContent = t("此浏览器未允许标签页存储。请在在线版或允许会话存储后重试。", "Session storage is unavailable. Allow it for this site, then try again.");
       return;
     }
     setup.close();
@@ -195,7 +201,7 @@
   }
   $("google-key-form").addEventListener("submit",event=>{
     event.preventDefault(); const value = input.value.trim();
-    if (!value || /\s/.test(value)) { status.textContent="请输入完整的 Google Maps 浏览器密钥。"; input.focus(); return; }
+    if (!value || /\s/.test(value)) { status.textContent=t("请输入完整的 Google Maps 浏览器密钥。", "Enter a complete Google Maps browser API key."); input.focus(); return; }
     applyKey(value);
   });
   $("google-disconnect").addEventListener("click",()=>applyKey(""));

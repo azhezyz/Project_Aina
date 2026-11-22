@@ -5,8 +5,7 @@ window.atlasPhotos = {
     "title": "Gion - Nineizaka (Ninenzaka), Kyoto, Japan (48923272228).jpg",
     "license": "CC BY-SA 2.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Gion_-_Nineizaka_(Ninenzaka),_Kyoto,_Japan_(48923272228).jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Gion_-_Nineizaka_(Ninenzaka),_Kyoto,_Japan_(48923272228).jpg"
   },
   "sannen": {
     "src": "photos/sannen.webp",
@@ -14,8 +13,7 @@ window.atlasPhotos = {
     "title": "Sannenzaka-kyoto.JPG",
     "license": "CC BY-SA 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Sannenzaka-kyoto.JPG",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Sannenzaka-kyoto.JPG"
   },
   "yasaka": {
     "src": "photos/yasaka.webp",
@@ -23,8 +21,7 @@ window.atlasPhotos = {
     "title": "Nishiromon Gate, Yasaka Shrine, Kyoto, West view 20190416 1.jpg",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Nishiromon_Gate,_Yasaka_Shrine,_Kyoto,_West_view_20190416_1.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Nishiromon_Gate,_Yasaka_Shrine,_Kyoto,_West_view_20190416_1.jpg"
   },
   "kiyomizu": {
     "src": "photos/kiyomizu.webp",
@@ -32,8 +29,7 @@ window.atlasPhotos = {
     "title": "Kiyomizu-dera, Kyoto, November 2016 -01.jpg",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Kiyomizu-dera,_Kyoto,_November_2016_-01.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Kiyomizu-dera,_Kyoto,_November_2016_-01.jpg"
   },
   "kennin": {
     "src": "photos/kennin.webp",
@@ -41,8 +37,7 @@ window.atlasPhotos = {
     "title": "150124 Kenninji Kyoto Japan01s3.jpg",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
-    "source": "https://commons.wikimedia.org/wiki/File:150124_Kenninji_Kyoto_Japan01s3.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:150124_Kenninji_Kyoto_Japan01s3.jpg"
   },
   "kodaiji": {
     "src": "photos/kodaiji.webp",
@@ -50,8 +45,7 @@ window.atlasPhotos = {
     "title": "Kodai-ji, Kyoto - Kodaiji7301.jpg",
     "license": "CC0",
     "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
-    "source": "https://commons.wikimedia.org/wiki/File:Kodai-ji,_Kyoto_-_Kodaiji7301.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Kodai-ji,_Kyoto_-_Kodaiji7301.jpg"
   },
   "gion": {
     "src": "photos/gion.webp",
@@ -59,8 +53,7 @@ window.atlasPhotos = {
     "title": "Hanamikoji Street, Kyoto on June 18th, 2016.jpg",
     "license": "CC BY-SA 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Hanamikoji_Street,_Kyoto_on_June_18th,_2016.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Hanamikoji_Street,_Kyoto_on_June_18th,_2016.jpg"
   },
   "maruyama": {
     "src": "photos/maruyama.webp",
@@ -68,8 +61,7 @@ window.atlasPhotos = {
     "title": "Giant Gion weeping sakura (51472103367).jpg",
     "license": "CC BY 2.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Giant_Gion_weeping_sakura_(51472103367).jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:Giant_Gion_weeping_sakura_(51472103367).jpg"
   },
   "arabica": {
     "src": "photos/arabica.webp",
@@ -77,7 +69,9 @@ window.atlasPhotos = {
     "title": "% Arabica Kyoto Higashiyama by Takumi Ota.jpg",
     "license": "CC BY-SA 2.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
-    "source": "https://commons.wikimedia.org/wiki/File:%25_Arabica_Kyoto_Higashiyama_by_Takumi_Ota.jpg",
-    "changes": "缩小并转换为 WebP"
+    "source": "https://commons.wikimedia.org/wiki/File:%25_Arabica_Kyoto_Higashiyama_by_Takumi_Ota.jpg"
   }
 };
+for (const photo of Object.values(window.atlasPhotos)) {
+  photo.changes = window.atlasLocale.t("缩小并转换为 WebP", "Resized and converted to WebP");
+}

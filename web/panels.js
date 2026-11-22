@@ -1,6 +1,7 @@
 (() => {
   "use strict";
 
+  const {t} = window.atlasLocale;
   const paths = {
     x: '<path d="m6 6 12 12M18 6 6 18"/>',
     next: '<path d="m9 5 7 7-7 7"/>',
@@ -45,7 +46,7 @@
       return url.protocol === "https:" ? url : null;
     } catch { return null; }
   };
-  const primaryText = p => p?.name || p?.short || "未命名地点";
+  const primaryText = p => p?.name || p?.short || t("未命名地点", "Unnamed place");
   const categoryText = p => [p?.kind, p?.area].filter(Boolean).join(" · ");
   const placeSymbol = p => {
     const value = [p?.icon, p?.kind, p?.name].join(" ");
@@ -69,62 +70,62 @@
       (options.disabled ? " disabled" : "") + ">" + (symbol ? icon(symbol) : "") + (iconOnly ? "" : "<span>" + name + "</span>") + "</button>";
   }
   function header(title, options = {}) {
-    const back = options.back ? button(options.back, options.value, "返回", "back", "ap-icon-btn ap-soft") : "";
+    const back = options.back ? button(options.back, options.value, t("返回", "Back"), "back", "ap-icon-btn ap-soft") : "";
     return '<header class="ap-header">' + back + '<div class="ap-heading"><h2>' + esc(title) + '</h2>' +
       (options.subtitle ? '<p>' + esc(options.subtitle) + '</p>' : '') + '</div>' +
       (options.count != null ? '<small class="ap-count">' + esc(options.count) + '</small>' : '') +
-      '<span class="ap-spacer"></span>' + (options.tools || "") + button("close", null, "收起卡片", "x", "ap-icon-btn ap-soft") + "</header>";
+      '<span class="ap-spacer"></span>' + (options.tools || "") + button("close", null, t("收起卡片", "Collapse panel"), "x", "ap-icon-btn ap-soft") + "</header>";
   }
   function metrics(route) {
     const entries = [];
     if (route.stops.length > 1) {
       const hasTime = route.minutes != null && Number.isFinite(Number(route.minutes));
       const hasDistance = route.km != null && Number.isFinite(Number(route.km));
-      if (hasTime) entries.push(esc(route.minutes) + " 分钟");
+      if (hasTime) entries.push(esc(route.minutes) + t(" 分钟", " min"));
       if (hasDistance) entries.push(esc(route.km) + " km");
-      if (!hasTime && !hasDistance) entries.push("步行里程与时间暂无估算");
-      else if (!hasTime) entries.push("步行时间暂无估算");
-      else if (!hasDistance) entries.push("步行里程暂无估算");
+      if (!hasTime && !hasDistance) entries.push(t("步行里程与时间暂无估算", "Distance and time unavailable"));
+      else if (!hasTime) entries.push(t("步行时间暂无估算", "Time unavailable"));
+      else if (!hasDistance) entries.push(t("步行里程暂无估算", "Distance unavailable"));
     }
-    entries.push(esc(route.stops.length) + " 站");
+    entries.push(t(`${route.stops.length} 站`, `${route.stops.length} ${route.stops.length === 1 ? "stop" : "stops"}`));
     return entries.join('<i>·</i>');
   }
   function routeRow(route, s) {
     const visible = includesId(s.visibleIds, route.id);
     const editing = route.id === s.editingRouteId;
-    const status = route.status === "draft" ? "草稿" : "已完成";
+    const status = route.status === "draft" ? t("草稿", "Draft") : t("已完成", "Complete");
     return '<div class="ap-route-row" style="--ap-route:' + getColor(route.color) + '"><button type="button" class="ap-route-target"' + attrs("selectRoute", route.id) +
       '><span class="ap-route-symbol">' + icon("route") + '</span><span class="ap-row-content"><strong' +
       (route.defaultName ? ' data-name-route-id="' + esc(route.id) + '"' : '') + '>' + esc(route.name) +
-      '</strong><small class="ap-metrics">' + (editing ? "编辑中" : status) + '<i>·</i>' + metrics(route) + '</small></span></button>' +
-      button("toggle", route.id, visible ? "隐藏这条路线" : "在地图上显示这条路线", visible ? "eye" : "eyeoff", "ap-icon-btn " + (visible ? "ap-ink" : "ap-muted"), null, { pressed: visible }) +
-      (s.view === "search" ? "" : button("deleteRoute", route.id, "删除路线「" + route.name + "」", "trash", "ap-icon-btn ap-danger")) + '</div>';
+      '</strong><small class="ap-metrics">' + (editing ? t("编辑中", "Editing") : status) + '<i>·</i>' + metrics(route) + '</small></span></button>' +
+      button("toggle", route.id, visible ? t("隐藏这条路线", "Hide this route") : t("在地图上显示这条路线", "Show this route on the map"), visible ? "eye" : "eyeoff", "ap-icon-btn " + (visible ? "ap-ink" : "ap-muted"), null, { pressed: visible }) +
+      (s.view === "search" ? "" : button("deleteRoute", route.id, t(`删除路线「${route.name}」`, `Delete route “${route.name}”`), "trash", "ap-icon-btn ap-danger")) + '</div>';
   }
   function planningStrip(s) {
     const editing = lookup(s.routes, s.editingRouteId);
     if (!editing) return "";
-    return '<div class="ap-planning-strip">' + icon("edit") + '<span>正在规划<strong>' + esc(editing.name) + '</strong></span>' +
-      '<div>' + button("route", editing.id, "继续编辑", null, "ap-link ap-small") +
-      button("exitPlanning", null, "退出规划", null, "ap-outline ap-small") + '</div></div>';
+    return '<div class="ap-planning-strip">' + icon("edit") + '<span>' + t("正在规划", "Planning") + '<strong>' + esc(editing.name) + '</strong></span>' +
+      '<div>' + button("route", editing.id, t("继续编辑", "Resume editing"), null, "ap-link ap-small") +
+      button("exitPlanning", null, t("退出规划", "Exit planning"), null, "ap-outline ap-small") + '</div></div>';
   }
   function routesView(s) {
     const cafes = s.places.filter(p => placeSymbol(p) === "cafe").slice(0,2);
     const nearby = cafes.map(p => '<button type="button" class="ap-nearby"'+attrs("place",p.id)+'><span class="ap-place-symbol">'+icon("cafe")+
       '</span><span class="ap-row-content"><strong>'+esc(primaryText(p))+'</strong><small>'+esc(categoryText(p))+'</small></span>'+icon("next")+'</button>').join("");
-    const title = header("我的路线", { count: s.routes.length, tools: button("newRoute",null,"开始规划","plus","ap-primary") });
-    const settings = '<footer class="ap-data-settings">' + (s.routes.length ? '<small>步行时间和距离为估算值。</small>' : "") +
-      button("googleSettings", null, "连接 Google 地图", "globe", "ap-small ap-link") + '</footer>';
-    if (!s.routes.length) return title + '<p class="ap-empty">还没有保存的路线。</p>' + settings;
+    const title = header(t("我的路线", "My routes"), { count: s.routes.length, tools: button("newRoute",null,t("开始规划", "New route"),"plus","ap-primary") });
+    const settings = '<footer class="ap-data-settings">' + (s.routes.length ? '<small>' + t("步行时间和距离为估算值。", "Walking times and distances are estimates.") + '</small>' : "") +
+      button("googleSettings", null, t("连接 Google 地图", "Connect Google Maps"), "globe", "ap-small ap-link") + '</footer>';
+    if (!s.routes.length) return title + '<p class="ap-empty">' + t("还没有保存的路线。", "No saved routes yet.") + '</p>' + settings;
     return title + planningStrip(s) + '<div class="ap-route-list">' +
       s.routes.map(route => routeRow(route, s)).join("") + '</div>' +
-      (nearby ? '<div class="ap-section-heading"><h3>沿途地点</h3>' + (list(s.pinnedIds).length ? button("compare",null,"地点比较","compare","ap-link ap-small") : "") +
+      (nearby ? '<div class="ap-section-heading"><h3>' + t("沿途地点", "Along the way") + '</h3>' + (list(s.pinnedIds).length ? button("compare",null,t("地点比较", "Compare places"),"compare","ap-link ap-small") : "") +
         '</div><div class="ap-nearby-list">'+nearby+'</div>' : "") + settings;
   }
   function cardActions(p, s, dispatch, onWebsite) {
     const editing = s.routes?.find(route => route.id === s.editingRouteId);
     const routeDisabled = Boolean(editing?.stops.includes(p.id));
     return {
-      routeLabel: routeDisabled ? "已在当前路线" : editing ? "加入当前路线" : "从这里规划",
+      routeLabel: routeDisabled ? t("已在当前路线", "Already on route") : editing ? t("加入当前路线", "Add to route") : t("从这里规划", "Start a route here"),
       routeDisabled,
       onRoute: () => dispatch("add", p.id),
       onWebsite: validUrl(p.url) ? onWebsite : undefined
@@ -133,36 +134,36 @@
   function placeTools(p, s) {
     const pi = list(s.pinnedIds).findIndex(id => idEquals(id, p.id));
     const pinned = pi >= 0;
-    return button("pin", p.id, pinned ? "已固定 " + pinLabel(pi) : "固定比较", "pin", "ap-small " + (pinned ? "ap-tinted" : "ap-link"), null, {pressed:pinned}) +
-      (list(s.pinnedIds).length ? button("compare", null, "地点比较", "compare", "ap-small ap-link") : "");
+    return button("pin", p.id, pinned ? t("已固定 ", "Pinned ") + pinLabel(pi) : t("固定比较", "Pin to compare"), "pin", "ap-small " + (pinned ? "ap-tinted" : "ap-link"), null, {pressed:pinned}) +
+      (list(s.pinnedIds).length ? button("compare", null, t("地点比较", "Compare places"), "compare", "ap-small ap-link") : "");
   }
   function placeView(s) {
     const p = lookup(s.places, s.selectedId);
     if (!p) return searchView(s);
     return '<div class="ap-place-bar"><div class="ap-place-tools">' + placeTools(p, s) + '</div>' +
-      button("close", null, "收起卡片", "x", "ap-icon-btn ap-soft") + '</div><div data-place-info="' + esc(p.id) + '"></div>';
+      button("close", null, t("收起卡片", "Collapse panel"), "x", "ap-icon-btn ap-soft") + '</div><div data-place-info="' + esc(p.id) + '"></div>';
   }
   function compareCard(p, i) {
     return '<article class="ap-place-card" data-compare-id="' + esc(p.id) + '"><div class="ap-card-top"><span class="ap-pin-letter">' + pinLabel(i) + '</span>' +
-      button("place", p.id, "展开" + primaryText(p) + "详情", "next", "ap-icon-btn ap-link") +
-      button("pin", p.id, "取消固定" + primaryText(p), "x", "ap-icon-btn ap-muted") + '</div>' +
+      button("place", p.id, t(`展开${primaryText(p)}详情`, `View details for ${primaryText(p)}`), "next", "ap-icon-btn ap-link") +
+      button("pin", p.id, t(`取消固定${primaryText(p)}`, `Unpin ${primaryText(p)}`), "x", "ap-icon-btn ap-muted") + '</div>' +
       '<div data-place-info="' + esc(p.id) + '" data-compact></div></article>';
   }
-  const choosePlace = '<button type="button" class="ap-choose"' + attrs("close") + '>' + icon("plus") + '<strong>从地图选择地点</strong><span>打开地点后点「固定比较」</span></button>';
+  const choosePlace = '<button type="button" class="ap-choose"' + attrs("close") + '>' + icon("plus") + '<strong>' + t("从地图选择地点", "Choose a place on the map") + '</strong><span>' + t("打开地点后点「固定比较」", "Open a place and select “Pin to compare.”") + '</span></button>';
   function compareView(s) {
     const pins = list(s.pinnedIds).map(id => lookup(s.places, id)).filter(Boolean);
-    return header("地点比较", {count: pins.length}) + '<div class="ap-compare">' + pins.map((p,i) => compareCard(p, i)).join("") +
+    return header(t("地点比较", "Compare places"), {count: pins.length}) + '<div class="ap-compare">' + pins.map((p,i) => compareCard(p, i)).join("") +
       (pins.length < 2 ? choosePlace : "") + '</div>';
   }
   function walkingStatus(route) {
     const summary = window.atlasGoogleWalking?.summary(route);
     if (!summary) return "";
-    const notes = {loading:"正在获取 Google 步行路线…", unavailable:"Google 未找到部分站点之间的步行路线。",
-      error:"暂时无法获取 Google 步行路线。"};
+    const notes = {loading:t("正在获取 Google 步行路线…", "Getting walking directions…"), unavailable:t("Google 未找到部分站点之间的步行路线。", "Google could not find a walking route between some stops."),
+      error:t("暂时无法获取 Google 步行路线。", "Google walking directions are temporarily unavailable.")};
     const retry = summary.status === "error" || summary.status === "unavailable";
     const note = notes[summary.status];
     return (note ? '<div class="ap-edit-hint" role="status">' + esc(note) +
-      (retry ? button("retryWalking", route.id, "重试步行路线", null, "ap-small ap-link") : "") + '</div>' : "") +
+      (retry ? button("retryWalking", route.id, t("重试步行路线", "Retry directions"), null, "ap-small ap-link") : "") + '</div>' : "") +
       (summary.usesGoogle ? (summary.warnings || []).map(warning => '<p class="ap-footnote">' + esc(warning) + '</p>').join("") : "");
   }
   function routeView(s) {
@@ -172,41 +173,41 @@
     const stops = r.stops.map((id, i) => {
       const p = lookup(s.places, id);
       return '<li class="ap-stop"><span class="ap-stop-no">' + (i+1) + '</span><button class="ap-stop-place" type="button"' + attrs("place", id) + '>' + esc(primaryText(p)) + '</button><div class="ap-stop-tools">' +
-        (p?.dynamic ? p.label || p.providerName ? button("labelStop", p.id, "修改「" + primaryText(p) + "」的备注名", "edit", "ap-icon-btn") :
-          button("labelStop", p.id, "为此站命名", "edit", "ap-small ap-link") : "") +
-        button("moveUp", r.id, "上移" + primaryText(p), "up", "ap-icon-btn", i, { disabled: i===0 }) +
-        button("moveDown", r.id, "下移" + primaryText(p), "down", "ap-icon-btn", i, { disabled: i===r.stops.length-1 }) +
-        button("removeStop", r.id, "从路线移除" + primaryText(p), "minus", "ap-icon-btn", i) + '</div></li>';
+        (p?.dynamic ? p.label || p.providerName ? button("labelStop", p.id, t(`修改「${primaryText(p)}」的备注名`, `Edit nickname for ${primaryText(p)}`), "edit", "ap-icon-btn") :
+          button("labelStop", p.id, t("为此站命名", "Name this stop"), "edit", "ap-small ap-link") : "") +
+        button("moveUp", r.id, t(`上移${primaryText(p)}`, `Move ${primaryText(p)} up`), "up", "ap-icon-btn", i, { disabled: i===0 }) +
+        button("moveDown", r.id, t(`下移${primaryText(p)}`, `Move ${primaryText(p)} down`), "down", "ap-icon-btn", i, { disabled: i===r.stops.length-1 }) +
+        button("removeStop", r.id, t(`从路线移除${primaryText(p)}`, `Remove ${primaryText(p)} from route`), "minus", "ap-icon-btn", i) + '</div></li>';
     }).join("");
     const enoughStops = r.stops.length >= 2;
-    const status = r.status === "draft" ? "草稿" : "已完成";
+    const status = r.status === "draft" ? t("草稿", "Draft") : t("已完成", "Complete");
     const actions = '<div class="ap-actions ap-editor-actions">' +
-      button("findStop", null, "搜索加站", "search", "ap-tinted") +
-      button("exitPlanning", null, "退出规划", null, "ap-outline") +
-      button("finishPlanning", null, "完成路线", "check", "ap-primary", null, {disabled: !enoughStops}) + '</div>';
-    return header(r.name, {back:"routes", subtitle:status + " · 步行路线", tools:button("deleteRoute", r.id, "删除路线", "trash", "ap-small ap-danger")}) +
+      button("findStop", null, t("搜索加站", "Find a stop"), "search", "ap-tinted") +
+      button("exitPlanning", null, t("退出规划", "Exit planning"), null, "ap-outline") +
+      button("finishPlanning", null, t("完成路线", "Finish route"), "check", "ap-primary", null, {disabled: !enoughStops}) + '</div>';
+    return header(r.name, {back:"routes", subtitle:status + t(" · 步行路线", " · Walking route"), tools:button("deleteRoute", r.id, t("删除路线", "Delete route"), "trash", "ap-small ap-danger")}) +
       '<div class="ap-route-detail" style="--ap-route:' + getColor(r.color) + '">' + actions +
-      (!enoughStops ? '<p class="ap-edit-hint">' + (r.stops.length ? "起点已加入，再加一站即可查看步行路线。" : "点地图上的地点或搜索加站，选择路线起点。") + '</p>' : '') +
-      '<div class="ap-stop-heading"><strong>路线站点</strong><span class="ap-detail-metrics ap-metrics">' + icon("walk") + metrics(r) + '</span></div>' +
+      (!enoughStops ? '<p class="ap-edit-hint">' + (r.stops.length ? t("起点已加入，再加一站即可查看步行路线。", "Starting point set. Add another stop to see walking directions.") : t("点地图上的地点或搜索加站，选择路线起点。", "Choose your starting point on the map or search for a stop.")) + '</p>' : '') +
+      '<div class="ap-stop-heading"><strong>' + t("路线站点", "Stops") + '</strong><span class="ap-detail-metrics ap-metrics">' + icon("walk") + metrics(r) + '</span></div>' +
       '<ol class="ap-stops">' + stops + '</ol>' + walkingStatus(r) + '<div class="ap-actions ap-route-options">' +
-      button("toggle", r.id, visible ? "地图上已显示" : "在地图上显示", visible ? "eye" : "eyeoff", "ap-small ap-link", null, {pressed: visible}) +
-      button("rename", r.id, "重命名", "edit", "ap-small ap-link") + button("duplicate", r.id, "复制", "copy", "ap-small ap-link") + '</div></div>';
+      button("toggle", r.id, visible ? t("地图上已显示", "Shown on map") : t("在地图上显示", "Show on map"), visible ? "eye" : "eyeoff", "ap-small ap-link", null, {pressed: visible}) +
+      button("rename", r.id, t("重命名", "Rename"), "edit", "ap-small ap-link") + button("duplicate", r.id, t("复制", "Duplicate"), "copy", "ap-small ap-link") + '</div></div>';
   }
   function webView(s) {
     const p = lookup(s.places, s.selectedId), url = validUrl(p?.url);
     if (!p || !url) return placeView(s);
-    return header(primaryText(p) + "官网", {back:"back"}) +
+    return header(primaryText(p) + t("官网", " website"), {back:"back"}) +
       '<div class="ap-browser-bar"><span>' + icon("globe") + esc(url.hostname.replace(/^www\./,"")) + '</span><a class="ap-btn ap-small ap-outline" href="' + esc(url.href) +
-      '" target="_blank" rel="noopener noreferrer">' + icon("ext") + '新标签打开</a></div>' +
-      '<iframe class="ap-frame" title="' + esc(primaryText(p) + "官方网站") + '" src="' + esc(url.href) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="strict-origin-when-cross-origin"></iframe>' +
-      '<p class="ap-footnote">若官网限制嵌入，可在新标签中查看。</p>';
+      '" target="_blank" rel="noopener noreferrer">' + icon("ext") + '' + t("新标签打开", "Open in new tab") + '</a></div>' +
+      '<iframe class="ap-frame" title="' + esc(primaryText(p) + t("官方网站", " official website")) + '" src="' + esc(url.href) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="strict-origin-when-cross-origin"></iframe>' +
+      '<p class="ap-footnote">' + t("若官网限制嵌入，可在新标签中查看。", "If this site blocks the preview, open it in a new tab.") + '</p>';
   }
   const normalized = value => String(value ?? "").normalize("NFKC").toLowerCase().replace(/[\s·・_-]+/g, "");
   function searchPlaces(places, s) {
     const editing = lookup(s.routes, s.editingRouteId);
     return '<div class="ap-results">' + places.map(p => {
       const added = editing?.stops.includes(p.id);
-      const add = editing ? button("add", p.id, primaryText(p) + (added ? "已在当前路线" : "，加入当前路线"),
+      const add = editing ? button("add", p.id, (added ? t(`${primaryText(p)}已在当前路线`, `${primaryText(p)} is already on this route`) : t(`${primaryText(p)}，加入当前路线`, `Add ${primaryText(p)} to route`)),
         added ? "check" : "plus", "ap-icon-btn ap-tinted", null, {disabled:added}) : "";
       return '<div class="ap-result-row"><button type="button" class="ap-result"' + attrs("searchResult",p.id) +
         '><span class="ap-place-symbol">' + icon(placeSymbol(p)) + '</span><span class="ap-row-content"><strong>' + esc(primaryText(p)) +
@@ -215,23 +216,23 @@
   }
   function localSearchResults(s) {
     const q = normalized(s.query);
-    const matches = !q ? [] : s.places.filter(p => [p.name,p.short,p.local,p.en,p.area,p.kind].some(field => normalized(field).includes(q)));
+    const matches = !q ? [] : s.places.filter(p => [p.name,p.zh,p.short,p.local,p.en,p.area,p.kind].some(field => normalized(field).includes(q)));
     const routes = !q ? [] : s.routes.filter(r => normalized(r.name).includes(q));
-    if (!matches.length && !routes.length) return '<p class="ap-empty">本地地点和路线中没有匹配项。</p>';
-    return '<div class="ap-section-heading"><h3>本地地点和路线</h3></div>' +
+    if (!matches.length && !routes.length) return '<p class="ap-empty">' + t("本地地点和路线中没有匹配项。", "No matching places or routes in your atlas.") + '</p>';
+    return '<div class="ap-section-heading"><h3>' + t("本地地点和路线", "Places and routes in your atlas") + '</h3></div>' +
       (routes.length ? '<div class="ap-route-list">'+routes.map(r => routeRow(r,s)).join("")+'</div>' : "") + searchPlaces(matches,s);
   }
   function searchView(s) {
     const query = (s.query || "").trim();
-    if (!query) return header(s.editingRouteId ? "选择下一站" : "搜索地点或路线") + planningStrip(s) + '<div class="ap-shortcuts">' +
-      button("newRoute", null, "开始规划", "plus", "ap-primary") + button("routes", null, "我的路线", "route", "ap-outline") +
-      button("compare", null, "地点比较", "compare", "ap-outline") + '</div>' +
-      (s.editingRouteId ? '<div class="ap-section-heading"><h3>地图上的地点</h3><span>点 ＋ 加到路线末尾</span></div>' + searchPlaces(s.places,s) : "");
+    if (!query) return header(s.editingRouteId ? t("选择下一站", "Choose your next stop") : t("搜索地点或路线", "Search places or routes")) + planningStrip(s) + '<div class="ap-shortcuts">' +
+      button("newRoute", null, t("开始规划", "New route"), "plus", "ap-primary") + button("routes", null, t("我的路线", "My routes"), "route", "ap-outline") +
+      button("compare", null, t("地点比较", "Compare places"), "compare", "ap-outline") + '</div>' +
+      (s.editingRouteId ? '<div class="ap-section-heading"><h3>' + t("地图上的地点", "Places on the map") + '</h3><span>' + t("点 ＋ 加到路线末尾", "Select + to add a stop at the end") + '</span></div>' + searchPlaces(s.places,s) : "");
     const online = window.atlasGoogle.isConfigured();
-    return header(s.editingRouteId ? "选择下一站" : "搜索地点或路线") +
+    return header(s.editingRouteId ? t("选择下一站", "Choose your next stop") : t("搜索地点或路线", "Search places or routes")) +
       '<div class="ap-google-search" data-google-query="' + esc(query) + '" data-connected="' + online + '">' +
-      (online ? button("searchGoogle", null, "搜索 Google 地点", "search", "ap-tinted") :
-        button("googleSettings", null, "连接 Google 地图以搜索更多地点", "globe", "ap-outline")) +
+      (online ? button("searchGoogle", null, t("搜索 Google 地点", "Search Google Maps"), "search", "ap-tinted") :
+        button("googleSettings", null, t("连接 Google 地图以搜索更多地点", "Connect Google Maps to find more places"), "globe", "ap-outline")) +
       '<p class="ap-search-status" data-search-status role="status" tabindex="-1"></p><div data-search-results></div></div>' +
       '<div data-local-results>' + localSearchResults(s) + '</div>';
   }

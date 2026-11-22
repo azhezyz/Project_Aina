@@ -1,7 +1,8 @@
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
   const all = window.atlasData.places;
-  const pendingName = "待命名地点";
+  const pendingName = t("待命名地点", "Unnamed place");
   const byId = new Map(all.map(p => [p.id, p]));
   const byGoogleId = new Map(all.filter(p => p.googlePlaceId).map(p => [p.googlePlaceId, p]));
   const nameRequests = new Map();
@@ -46,7 +47,7 @@
         nameRequests.delete(place.id);
         return;
       }
-      const result = new Place({id: place.googlePlaceId});
+      const result = new Place({id: place.googlePlaceId, requestedLanguage: window.atlasLocale.lang});
       await result.fetchFields({fields});
       if (fields.includes("displayName") && text(result.displayName)) place.apiName = text(result.displayName);
       if (fields.includes("location") && result.location && !fresh(place.locatedAt)) {
@@ -84,7 +85,7 @@
       const serial = Number.isSafeInteger(number) && number > 0 && number < Number.MAX_SAFE_INTEGER ? number : nextNumber;
       nextNumber = Math.max(nextNumber, serial + 1);
       place = {id: "google:" + data.placeId, googlePlaceId: data.placeId, dynamic: true,
-        number: serial, kind: "Google 地点", name: pendingName};
+        number: serial, kind: t("Google 地点", "Google place"), name: pendingName};
       byGoogleId.set(data.placeId, place);
       byId.set(place.id, place);
       all.push(place);

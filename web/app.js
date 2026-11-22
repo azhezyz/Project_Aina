@@ -1,6 +1,10 @@
 (() => {
   const $ = id => document.getElementById(id);
+  const {t, lang} = window.atlasLocale;
   const { places, routes: initialRoutes } = window.atlasData;
+  const presets = new Map(initialRoutes.map(route => [route.id, route]));
+  const copySuffix = " · 副本";
+  const translatedCopySuffix = t(copySuffix, " · Copy");
   const catalog = window.atlasSavedPlaces, byId = catalog.byId;
   const sheet = window.atlasSheet, map = window.atlasMap, panels = window.atlasPanels, windows = window.atlasWindows;
   const query = $("query"), body = $("sheet-body");
@@ -14,11 +18,15 @@
       /^#[0-9a-f]{6}$/i.test(r.color) && Array.isArray(r.stops) && r.stops.every(s => byId.has(s)));
   const migrating = validRoutes && (restored.schemaVersion === 1 || restored.schemaVersion == null);
   const routes = (validRoutes ? restored.routes : initialRoutes).map(route => {
-    const demo = initialRoutes.find(r => r.id === route.id);
+    const demo = presets.get(route.id);
     // Earlier versions didn't distinguish a generated title from a user's edit.
     const oldDefault = validRoutes && (restored.schemaVersion || 1) < 4 && !demo &&
       /^步行路线 [1-9]\d*(?: · 副本)*$/.test(route.name) ? route.name : undefined;
+    // Only preset IDs with their original titles can migrate as preset names.
+    // A version-five route without a name origin has an explicitly chosen title.
+    const presetTitle = demo && (!validRoutes || ((restored.schemaVersion || 1) < 5 && route.name === demo.zh));
     return { ...route, stops: [...route.stops], color: migrating && demo ? demo.color : route.color,
+      nameOrigin: route.nameOrigin || (presetTitle ? {preset:demo.id} : undefined),
       defaultName: typeof route.defaultName === "string" ? route.defaultName : oldDefault,
       status: route.status || (route.stops.length >= 2 ? "complete" : "draft") };
   });
@@ -103,14 +111,24 @@
     watchTargets(visibleStops, editorTargets, targets);
   }
 
+  function fixedTitle(route, localize) {
+    const origin = route.nameOrigin;
+    if (!origin) return route.name;
+    const preset = presets.get(origin.preset);
+    const base = (localize ? preset?.name : preset?.zh) ?? origin.text ?? route.name;
+    // A valid saved copy has at least one character of suffix per copy.
+    const depth = Number.isSafeInteger(origin.copies) && origin.copies > 0 && origin.copies <= route.name.length ? origin.copies : 0;
+    return base + (localize ? translatedCopySuffix : copySuffix).repeat(depth);
+  }
+
   function save() {
     try {
       const { routes, activeRouteId, visibleIds, pinnedIds } = state;
       const savedPlaces = catalog.snapshot(routes, pinnedIds);
       // A generated title can contain a Google display name. Rebuild it on screen.
-      const savedRoutes = routes.map(({minutes, km, ...r}) => ({...r, name: r.defaultName || r.name}));
-      localStorage.setItem(storeKey, JSON.stringify({ schemaVersion: 4, routes: savedRoutes, activeRouteId, visibleIds, pinnedIds, savedPlaces }));
-    } catch { notify("当前浏览器无法保存，行程仍可在本页使用"); }
+      const savedRoutes = routes.map(({minutes, km, zh, en, ...r}) => ({...r, name: r.defaultName || fixedTitle(r,false)}));
+      localStorage.setItem(storeKey, JSON.stringify({ schemaVersion: 5, routes: savedRoutes, activeRouteId, visibleIds, pinnedIds, savedPlaces }));
+    } catch { notify(t("当前浏览器无法保存，行程仍可在本页使用","Your browser could not save this trip. You can still use it in this tab.")); }
   }
   function notify(message) {
     const notice = $("notice");
@@ -127,11 +145,12 @@
   }
   function render() {
     for (const r of state.routes) {
-      if (!r.defaultName) continue;
+      if (!r.defaultName) { r.name = fixedTitle(r,true); continue; }
       const first = byId.get(r.stops[0]);
       const title = first?.dynamic ? first.label || first.providerName : first?.name;
-      const copies = r.defaultName.match(/(?: · 副本)+$/)?.[0] || "";
-      r.name = title ? title + " · 步行路线" + copies : r.defaultName;
+      const template = r.defaultName.split(copySuffix);
+      const numberedTitle = template[0].replace(/^步行路线 /, t("步行路线 ", "Walking Route "));
+      r.name = (title ? title + t(" · 步行路线"," · Walking Route") : numberedTitle) + translatedCopySuffix.repeat(template.length - 1);
     }
     map.setState(state);
     windows.refresh(state);
@@ -150,7 +169,8 @@
     if (!route || chip.hidden) return;
     chip.style.setProperty("--route-color", route.color);
     chip.querySelector("strong").textContent = route.name;
-    chip.querySelector("small").textContent = route.stops.length + " 站";
+    const n = route.stops.length;
+    chip.querySelector("small").textContent = n + t(" 站", n === 1 ? " stop" : " stops");
   }
   function setView(view, level = "half") {
     if (state.view !== view) body.scrollTop = 0;
@@ -159,6 +179,48 @@
     render();
     sheet.setLevel(level);
     updateEditingChip();
+  }
+
+  // Loading another language restarts the Google SDK. Hand off the current
+  // workspace only for that navigation, separate from the saved itinerary.
+  const handoffKey = "aina.language-workspace";
+  window.addEventListener("aina-language-changing", event => {
+    const nextLang = event.detail?.lang;
+    if (!["en","zh-CN"].includes(nextLang) || nextLang === lang) return;
+    const {view,query,selectedId,editingRouteId,webBack} = state;
+    const handoff = {nextLang, time:Date.now(), view, query, selectedId, editingRouteId, webBack,
+      nameTarget, namedStop, nameDraft:body.querySelector('.name-form input')?.value,
+      level:sheet.getLevel(), windows:windows.snapshot()};
+    try { sessionStorage.setItem(handoffKey, JSON.stringify(handoff)); } catch { /* Optional per-tab state. */ }
+  });
+  function restoreWorkspace() {
+    let handoff;
+    try {
+      handoff = JSON.parse(sessionStorage.getItem(handoffKey));
+      sessionStorage.removeItem(handoffKey);
+    } catch { return; }
+    if (handoff?.nextLang !== lang || !Number.isFinite(handoff.time) || Date.now() - handoff.time > 120000) return;
+    const openWindows = Array.isArray(handoff.windows) ? handoff.windows : [];
+    // A Google place that was only open in a window need not be in the saved trip.
+    for (const id of [handoff.selectedId, ...openWindows.map(w => w.id)]) {
+      if (typeof id === "string" && id.startsWith("google:") && !byId.has(id)) catalog.register({placeId:id.slice(7)});
+    }
+    if (ids.has(handoff.editingRouteId)) state.activeRouteId = state.editingRouteId = handoff.editingRouteId;
+    if (byId.has(handoff.selectedId)) state.selectedId = handoff.selectedId;
+    nameTarget = ids.has(handoff.nameTarget) ? handoff.nameTarget : null;
+    namedStop = byId.has(handoff.namedStop) ? handoff.namedStop : null;
+    const allowed = {routes:true, search:true, compare:true, place:state.selectedId,
+      route:state.editingRouteId, name:nameTarget || namedStop, web:byId.get(state.selectedId)?.url};
+    state.view = Object.hasOwn(allowed,handoff.view) && allowed[handoff.view] ? handoff.view : "routes";
+    if (handoff.view === "web" && state.view !== "web" && state.selectedId) state.view = "place";
+    state.webBack = handoff.webBack === "compare" ? "compare" : "place";
+    if (state.view === "search" && typeof handoff.query === "string") query.value = state.query = handoff.query;
+    sheet.setLevel(handoff.level);
+    render();
+    const field = body.querySelector('.name-form input');
+    if (field && typeof handoff.nameDraft === "string") field.value = handoff.nameDraft;
+    windows.restore(openWindows);
+    if (state.editingRouteId) map.focusRoute?.(state.editingRouteId);
   }
   function openPlace(id, focus = false) {
     const place = byId.get(id);
@@ -224,7 +286,7 @@
     const banner = $("delete-feedback");
     banner.hidden = !last;
     if (!last) return;
-    $("deleted-name").textContent = "已删除「" + last.route.name + "」";
+    $("deleted-name").textContent = t("已删除「" + last.route.name + "」", "Deleted “" + last.route.name + "”");
     undoTimer = setTimeout(() => {
       recentlyDeleted.length = 0;
       banner.hidden = true;
@@ -257,7 +319,7 @@
   }
   function nextDraft(firstStop) {
     let n = 1;
-    while (state.routes.some(r => (r.defaultName || r.name) === "步行路线 " + n)) n++;
+    while (state.routes.some(r => (r.defaultName || r.name) === "步行路线 " + n || r.name === t("步行路线 ", "Walking Route ") + n)) n++;
     const defaultName = "步行路线 " + n;
     const route = { id: crypto.randomUUID(), name: defaultName, defaultName,
       color: palette[(state.routes.length - initialRoutes.length + palette.length) % palette.length],
@@ -276,17 +338,19 @@
     sheet.setLevel("closed");
     render();
     if (complete && state.visibleIds.includes(route.id)) map.focusRoute?.(route);
-    notify(complete ? "路线已完成，可点地图上的路线继续编辑" : "已退出规划，进度已保存");
+    notify(complete ? t("路线已完成，可点地图上的路线继续编辑", "Route complete. Select it on the map to edit it again.")
+      : t("已退出规划，进度已保存", "Your route has been saved."));
   }
   function renderName() {
     const route = state.routes.find(r => r.id === nameTarget);
     const place = byId.get(namedStop);
     if (body.querySelector(".name-form")?.dataset.target === (place?.id || route?.id)) return;
-    body.innerHTML = '<form class="name-form"><h2></h2><label><span></span><input name="routeName" maxlength="45" autocomplete="off"></label><div><button type="button">取消</button><button type="submit">保存</button></div></form>';
+    body.innerHTML = '<form class="name-form"><h2></h2><label><span></span><input name="routeName" maxlength="45" autocomplete="off"></label><div><button type="button">' +
+      t("取消","Cancel") + '</button><button type="submit">' + t("保存","Save") + '</button></div></form>';
     const form = body.firstElementChild;
     form.dataset.target = place?.id || route?.id || "";
-    form.querySelector("h2").textContent = place ? "为地点设置备注名" : "重命名路线";
-    form.querySelector("label span").textContent = place ? "地点备注名" : "路线名称";
+    form.querySelector("h2").textContent = place ? t("为地点设置备注名","Set a place nickname") : t("重命名路线","Rename route");
+    form.querySelector("label span").textContent = place ? t("地点备注名","Place nickname") : t("路线名称","Route name");
     const field = form.elements.routeName;
     field.required = !place;
     field.value = place ? place.label || "" : route?.defaultName ? "" : route?.name || "";
@@ -300,8 +364,9 @@
       else if (route) {
         route.name = name;
         delete route.defaultName;
+        delete route.nameOrigin;
       }
-      save(); setView("route"); notify("已保存名称");
+      save(); setView("route"); notify(t("已保存名称","Name saved"));
     };
     if (matchMedia("(pointer:fine)").matches) requestAnimationFrame(() => field.focus());
   }
@@ -317,7 +382,7 @@
         if (!byId.has(value)) break;
         if (state.pinnedIds.includes(value)) state.pinnedIds = state.pinnedIds.filter(id => id !== value);
         else if (state.pinnedIds.length < 2) state.pinnedIds.push(value);
-        else { notify("已固定两个地点，请先移除其中一个"); break; }
+        else { notify(t("已固定两个地点，请先移除其中一个","Two places are pinned. Unpin one to compare another.")); break; }
         save();
         if (state.pinnedIds.length === 2) {
           clearTimeout(noticeTimer); $("notice").classList.remove("visible");
@@ -326,7 +391,7 @@
         else {
           if (state.view === "compare" && !state.pinnedIds.length) setView("routes");
           else render();
-          if (state.pinnedIds.includes(value)) notify("已固定 A，再点一个地点进行比较");
+          if (state.pinnedIds.includes(value)) notify(t("已固定 A，再点一个地点进行比较","Pinned as A. Pick a second place to compare."));
         }
         break;
       }
@@ -344,10 +409,12 @@
       case "duplicate": {
         if (!route) break;
         const id = crypto.randomUUID();
-        const copy = { ...route, id, name: route.name + " · 副本", stops: [...route.stops], status: "draft",
-          defaultName: route.defaultName ? route.defaultName + " · 副本" : undefined,
+        const origin = route.nameOrigin || {text:route.name};
+        const copy = { ...route, id, name: route.name + translatedCopySuffix, stops: [...route.stops], status: "draft",
+          nameOrigin: route.defaultName ? undefined : {...origin, copies:(origin.copies || 0) + 1},
+          defaultName: route.defaultName ? route.defaultName + copySuffix : undefined,
           color: palette[(state.routes.length - initialRoutes.length + palette.length) % palette.length] };
-        state.routes.unshift(copy); showRoute(id); openRoute(id); notify("路线副本已保存"); break;
+        state.routes.unshift(copy); showRoute(id); openRoute(id); notify(t("路线副本已保存","Route copy saved")); break;
       }
       case "newRoute": nextDraft(); break;
       case "rename": if (route) { namedStop = null; nameTarget = route.id; setView("name"); } break;
@@ -367,11 +434,11 @@
       case "add": {
         if (!byId.has(value)) break;
         const editing = state.routes.find(r => r.id === state.editingRouteId);
-        if (!editing) { nextDraft(value); notify("已新建路线，并设为第一站"); break; }
-        if (editing.stops.includes(value)) { notify("这个地点已经在当前路线中"); break; }
+        if (!editing) { nextDraft(value); notify(t("已新建路线，并设为第一站","New route started here")); break; }
+        if (editing.stops.includes(value)) { notify(t("这个地点已经在当前路线中","This place is already on your route")); break; }
         editing.stops.push(value);
         editing.status = "draft";
-        updateEstimate(editing); openRoute(editing.id); notify("已加入第 " + editing.stops.length + " 站"); break;
+        updateEstimate(editing); openRoute(editing.id); notify(t("已加入第 " + editing.stops.length + " 站","Added stop " + editing.stops.length)); break;
       }
       case "removeStop": case "moveUp": case "moveDown": {
         if (!route || route.id !== state.editingRouteId) break;
@@ -393,8 +460,9 @@
   windows.mount({ container: $("place-windows"), byId, actions: act });
   $("map-source").addEventListener("click", () => window.atlasPlaceCard.settings());
   window.addEventListener("atlas:basemap-state", event => {
-    const labels = {offline:"离线底图",loading:"正在连接 Google 地图",google:"Google 底图",error:"离线底图 · 查看连接状态"};
-    $("map-source").textContent = labels[event.detail.state] || "京都步行地图";
+    const labels = {offline:t("离线底图","Offline map"),loading:t("正在连接 Google 地图","Connecting to Google Maps"),
+      google:t("Google 底图","Google Maps"),error:t("离线底图 · 查看连接状态","Offline map · Check connection")};
+    $("map-source").textContent = labels[event.detail.state] || t("京都步行地图","Kyoto walking map");
     catalog.refreshNames();
     map.setState(state);
     state.routes.forEach(updateEstimate);
@@ -450,7 +518,7 @@
   sheet.mount({ sheet: $("sheet"), handle: $("sheet-handle"), body, onHeight: height => map.setBottom(height),
     onCloseWindows: () => {
       const count = windows.closeAll();
-      if (count) notify("已关闭 " + count + " 个地点窗口");
+      if (count) notify(t("已关闭 " + count + " 个地点窗口","Closed " + count + (count === 1 ? " place window" : " place windows")));
     },
     onLevelChange: level => {
       if (level === "closed") {
@@ -460,10 +528,11 @@
   });
   render();
   scheduleExpiry();
+  restoreWorkspace();
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) { scheduleExpiry(); window.atlasGoogleWalking?.sync(state); }
   });
-  if (staleCoordinates || recoveredPlaces || restored?.schemaVersion !== 4 || !validRoutes) save();
+  if (staleCoordinates || recoveredPlaces || restored?.schemaVersion !== 5 || !validRoutes) save();
   $("undo-delete").addEventListener("click", undoDelete);
   $("editing-chip").addEventListener("click", () => openRoute(state.editingRouteId));
   query.addEventListener("focus", () => { state.query = query.value; setView("search"); });

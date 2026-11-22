@@ -1,6 +1,7 @@
 /* Google Maps owns the camera, route geometry and the pane that carries these labels. */
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
   const toLatLng = ([x,y]) => ({lat:35.01-y/111000, lng:135.77+x/91300});
   const routeColor = r => r.color || "#087e83";
   const fractions = [.42,.65,.25,.78,.52];
@@ -156,7 +157,7 @@
         const lane=badgeAnchors.get(anchor)||0;
         badgeAnchors.set(anchor,lane+1);
         items.push({kind:"route",id:route.id,position,color:routeColor(route),text:route.name,
-          description:"打开路线 "+route.name,rise:(longest.length>1?28:21)+lane*27,priority:25+index});
+          description:t("打开路线 ","Open route ")+route.name,rise:(longest.length>1?28:21)+lane*27,priority:25+index});
       }
       for(const [id,row] of lines) {
         if(!keep.has(id)) {row.listener.remove();row.line.setMap(null);lines.delete(id);}
@@ -165,7 +166,7 @@
         if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
         const stop=stops.get(p.id),letter=pins.get(p.id)||"",selected=p.id===selectedId;
         if (p.dynamic && !stop && !letter && !selected) continue;
-        const text=p.short||p.name||"地点",mark=stop?String(stop.number):letter;
+        const text=p.short||p.name||t("地点","Place"),mark=stop?String(stop.number):letter;
         let side="east";
         if(stop) {
           // Point endpoint titles away from the walk so a short street segment stays visible.
@@ -180,7 +181,7 @@
           if(near.length)side=Math.abs(east)>Math.abs(north) ? (east>0?"west":"east") : (north>0?"south":"north");
         }
         items.push({kind:"place",id:p.id,position:{lat:p.lat,lng:p.lng},mark,letter,selected,
-          side,text,label:Boolean(stop||letter||selected),description:(stop?"第 "+stop.number+" 站 · ":"")+text,
+          side,text,label:Boolean(stop||letter||selected),description:(stop?t("第 "+stop.number+" 站 · ","Stop "+stop.number+" · "):"")+text,
           color:stop?routeColor(stop.route):letter?"#6658ac":"#8a755f",
           priority:selected?24:stop?20:letter?18:8});
       }

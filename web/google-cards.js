@@ -2,6 +2,7 @@
 // The Kyoto atlas keeps only the chosen Place IDs in memory for this page.
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
 
   const storageKey = "kyoto.google.browser-key";
   const projectKey = typeof window.AINA_CONFIG?.googleMapsBrowserKey === "string"
@@ -64,9 +65,12 @@
     billing.href = "https://console.cloud.google.com/billing";
     billing.target = "_blank";
     billing.rel = "noopener noreferrer";
-    billing.textContent = "Google Cloud 结算";
-    const text = status === "confirmed" ? "Google 已确认当前项目未启用结算。" : "上次检查时，Google 确认此密钥所属项目未启用结算。";
-    target.append(text + "请在 ", billing, " 中为该项目关联有效的结算账号，然后刷新页面重试。");
+    billing.textContent = t("Google Cloud 结算", "Google Cloud Billing");
+    const text = status === "confirmed"
+      ? t("Google 已确认当前项目未启用结算。", "Google reports that billing is disabled for this project.")
+      : t("上次检查时，Google 确认此密钥所属项目未启用结算。", "At the last check, Google reported that billing was disabled for this key’s project.");
+    target.append(text + t("请在 ", " Link the project to an active billing account in "),
+      billing, t(" 中为该项目关联有效的结算账号，然后刷新页面重试。", ", then refresh the page."));
     return true;
   }
 
@@ -97,7 +101,7 @@
       window[callback] = () => {
         finish(window.google?.maps?.importLibrary ? null : new Error("Maps SDK unavailable"));
       };
-      url.search = new URLSearchParams({ key: apiKey, callback, loading: "async", v: "weekly", language: "zh-CN", region: "JP" });
+      url.search = new URLSearchParams({ key: apiKey, callback, loading: "async", v: "weekly", language: window.atlasLocale.lang, region: "JP" });
       script.async = true;
       script.onerror = () => finish(new Error("Maps SDK unavailable"));
       script.src = url.href;
@@ -165,7 +169,7 @@
       id: place.id,
       compact, actions, externalTitle,
       cancel() { clearTimeout(timer); lifetime.abort(); },
-      denied() { fail("Google Maps 已拒绝连接。", true, true); }
+      denied() { fail(t("Google Maps 已拒绝连接。", "Google Maps denied the connection."), true, true); }
     };
     installations.set(host, record);
     const active = () => host.isConnected && installations.get(host) === record && !lifetime.signal.aborted;
@@ -186,7 +190,7 @@
       const retry = document.createElement("button");
       retry.type = "button";
       retry.className = "google-card-retry";
-      retry.textContent = showSettings ? "查看连接设置" : "重试";
+      retry.textContent = showSettings ? t("查看连接设置", "Connection settings") : t("重试", "Try again");
       retry.onclick = () => {
         if (showSettings) { window.atlasPlaceCard?.settings(); return; }
         installations.delete(host);
@@ -194,14 +198,14 @@
       };
       const line = message(note);
       if (showSettings && !appendBillingHelp(line)) {
-        line.append("请检查项目结算、API 启用状态和网站来源限制。");
+        line.append(t("请检查项目结算、API 启用状态和网站来源限制。", " Check project billing, enabled APIs and allowed website origins."));
       }
       host.replaceChildren(line, retry);
       status("error");
     }
     function timeout() {
       clearTimeout(timer);
-      timer = setTimeout(() => fail("Google Maps 暂未响应。"), 16000);
+      timer = setTimeout(() => fail(t("Google Maps 暂未响应。", "Google Maps took too long to respond.")), 16000);
     }
     function watch(widget, loaded) {
       currentWidget = widget;
@@ -210,7 +214,7 @@
         if (!active() || currentWidget !== widget) return;
         placeDenied = true;
         if (!reportGoogleError(event)) {
-          fail("Google 拒绝了这次地点请求。", true);
+          fail(t("Google 拒绝了这次地点请求。", "Google denied this place request."), true);
           window.dispatchEvent(new Event("aina-google-place-status"));
         }
       }, {signal:lifetime.signal});
@@ -264,7 +268,7 @@
           route ??= button("route", current => {
             if (!current?.routeDisabled) current?.onRoute?.();
           });
-          label(route, next.routeLabel || "加入路线");
+          label(route, next.routeLabel || t("加入路线", "Add to route"));
           route.setAttribute("aria-disabled", String(Boolean(next.routeDisabled)));
         } else if (route) {
           route.remove();
@@ -273,7 +277,7 @@
         if (typeof next?.onWebsite === "function") {
           if (!website) {
             website = button("website", current => current?.onWebsite?.());
-            label(website, "官网");
+            label(website, t("官网", "Website"));
           }
         } else if (website) {
           website.remove();
@@ -340,12 +344,12 @@
       choices.style.cssText = "height:1px; overflow:hidden; opacity:0";
       choices.inert = true;
       choices.append(widget);
-      const hint = message("正在匹配这个地点…");
+      const hint = message(t("正在匹配这个地点…", "Finding this place…"));
       watch(widget, () => {
         const results = widget.places || [];
-        if (!results.length) { fail("Google Maps 未找到附近的匹配地点。"); return; }
+        if (!results.length) { fail(t("Google Maps 未找到附近的匹配地点。", "Google Maps found no matching places nearby.")); return; }
         if (results.length === 1) { showDetails(results[0].id); return; }
-        hint.textContent = "请选择对应的 Google 地点";
+        hint.textContent = t("请选择对应的 Google 地点", "Select the matching place on Google Maps.");
         choices.style.cssText = "";
         choices.inert = false;
       });
@@ -355,7 +359,7 @@
       host.replaceChildren(hint, choices);
     }
 
-    host.replaceChildren(message("正在连接 Google Maps…"));
+    host.replaceChildren(message(t("正在连接 Google Maps…", "Connecting to Google Maps…")));
     status("loading");
     timeout();
     load("places").then(() => {
@@ -365,7 +369,7 @@
       else search();
     }).catch(() => {
       if (authError) record.denied();
-      else fail("无法连接 Google Maps，请检查网络后重试。");
+      else fail(t("无法连接 Google Maps，请检查网络后重试。", "Couldn’t connect to Google Maps. Check your connection and try again."));
     });
     return true;
   }

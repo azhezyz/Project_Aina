@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
 
   const searches = new WeakMap();
 
@@ -20,10 +21,10 @@
       results.replaceChildren();
       status.textContent = message;
       button.hidden = false;
-      button.querySelector("span").textContent = "重试 Google 搜索";
+      button.querySelector("span").textContent = t("重试 Google 搜索", "Retry Google search");
     }
     button.hidden = true;
-    status.textContent = "正在搜索 Google 地点…";
+    status.textContent = t("正在搜索 Google 地点…", "Searching Google Maps…");
     status.focus({preventScroll: true});
     try {
       await window.atlasGoogle.load("places");
@@ -39,24 +40,26 @@
       widget.addEventListener("gmp-error", event => {
         if (!active()) return;
         window.atlasGoogle.reportGoogleError(event);
-        failed("Google 地点搜索无法使用，请检查网络或地图连接设置。");
+        failed(t("Google 地点搜索无法使用，请检查网络或地图连接设置。", "Google place search is unavailable. Check your connection or map settings."));
       });
       widget.addEventListener("gmp-load", () => {
         clearTimeout(timer);
         if (!active()) return;
         const count = widget.places.length;
-        status.textContent = count ? "找到 " + count + " 个 Google 地点" : "Google 未找到地点，试试其他名称或加上城市名。";
+        status.textContent = count
+          ? t("找到 " + count + " 个 Google 地点", count + (count === 1 ? " place found" : " places found"))
+          : t("Google 未找到地点，试试其他名称或加上城市名。", "No places found. Try another name or include the city.");
       });
       widget.addEventListener("gmp-select", event => {
         if (!active()) return;
         const result = window.atlasSavedPlaces.widgetPlace(event.place);
         if (result) onSelect(result);
-        else status.textContent = "无法打开这个地点，请选择其他结果。";
+        else status.textContent = t("无法打开这个地点，请选择其他结果。", "Couldn’t open this place. Choose another result.");
       });
-      timer = setTimeout(() => failed("Google 地点搜索暂未响应。"), 20000);
+      timer = setTimeout(() => failed(t("Google 地点搜索暂未响应。", "Google place search took too long to respond.")), 20000);
       results.replaceChildren(widget);
     } catch {
-      failed("Google 地点搜索无法使用，请检查网络或地图连接设置。");
+      failed(t("Google 地点搜索无法使用，请检查网络或地图连接设置。", "Google place search is unavailable. Check your connection or map settings."));
     }
   }
 

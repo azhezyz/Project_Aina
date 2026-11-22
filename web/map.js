@@ -1,6 +1,7 @@
 /* Kyoto walking map. Offline geometry © OpenStreetMap contributors (ODbL). */
 (() => {
   "use strict";
+  const {t, en} = window.atlasLocale;
   const FONT = '"Segoe UI","Microsoft YaHei UI","PingFang SC","Hiragino Sans",sans-serif';
   const BOUNDS = [-1450, -1200, 2260, 2840];
   const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -298,24 +299,24 @@
   ];
   // Fixed label anchors let street and district names stay aligned with the basemap.
   const roadLabels = [
-    [35.00380,135.77185,'四条通',1],[35.00368,135.77640,'四条通',0],
-    [35.00049,135.77588,'東大路通',-82],[35.00504,135.77778,'東大路通',-80],
-    [35.00054,135.77469,'花見小路通',-86],[34.99920,135.77195,'大和大路通',-86],
-    [34.99669,135.77576,'松原通',1],[34.99753,135.77989,'八坂通',-2],
-    [34.99058,135.77625,'五条通',-6],[35.00664,135.77321,'新橋通',5],
-    [34.99627,135.78223,'清水坂',-7],[34.99473,135.77860,'五条坂',-12],
-    [35.00580,135.76966,'川端通',-86],[34.99700,135.76892,'川端通',-77],
-    [34.99530,135.76472,'河原町通',-82],[35.00061,135.76674,'木屋町通',-82],
-    [35.00849,135.77043,'三条通',2],[35.00830,135.78001,'三条通',1],
-    [34.98583,135.77634,'七条通',-6],[34.99653,135.76201,'松原通',0]
+    [35.00380,135.77185,t('四条通','Shijo-dori'),1],[35.00368,135.77640,t('四条通','Shijo-dori'),0],
+    [35.00049,135.77588,t('東大路通','Higashioji-dori'),-82],[35.00504,135.77778,t('東大路通','Higashioji-dori'),-80],
+    [35.00054,135.77469,t('花見小路通','Hanamikoji-dori'),-86],[34.99920,135.77195,t('大和大路通','Yamato-oji-dori'),-86],
+    [34.99669,135.77576,t('松原通','Matsubara-dori'),1],[34.99753,135.77989,t('八坂通','Yasaka-dori'),-2],
+    [34.99058,135.77625,t('五条通','Gojo-dori'),-6],[35.00664,135.77321,t('新橋通','Shinbashi-dori'),5],
+    [34.99627,135.78223,t('清水坂','Kiyomizu-zaka'),-7],[34.99473,135.77860,t('五条坂','Gojo-zaka'),-12],
+    [35.00580,135.76966,t('川端通','Kawabata-dori'),-86],[34.99700,135.76892,t('川端通','Kawabata-dori'),-77],
+    [34.99530,135.76472,t('河原町通','Kawaramachi-dori'),-82],[35.00061,135.76674,t('木屋町通','Kiyamachi-dori'),-82],
+    [35.00849,135.77043,t('三条通','Sanjo-dori'),2],[35.00830,135.78001,t('三条通','Sanjo-dori'),1],
+    [34.98583,135.77634,t('七条通','Shichijo-dori'),-6],[34.99653,135.76201,t('松原通','Matsubara-dori'),0]
   ];
   const contextLabels = [
-    [35.00605,135.78207,'知恩院','temple'],[35.00535,135.77189,'祇園白川','street'],
-    [34.99711,135.77626,'六波羅蜜寺','temple'],[35.00101,135.77134,'宮川町','street'],
-    [34.99190,135.77247,'清水五条','train'],[35.00366,135.77113,'祇園四条','train'],
-    [35.01000,135.78335,'青蓮院','temple'],[34.99640,135.78447,'地主神社','shrine'],
-    [34.98877,135.78286,'京都女子大学','school'],[35.01150,135.78081,'東山','train'],
-    [35.01170,135.78581,'岡崎公園','park'],[34.99083,135.77287,'豊国神社','shrine']
+    [35.00605,135.78207,t('知恩院','Chion-in'),'temple'],[35.00535,135.77189,t('祇園白川','Gion Shirakawa'),'street'],
+    [34.99711,135.77626,t('六波羅蜜寺','Rokuharamitsu-ji'),'temple'],[35.00101,135.77134,t('宮川町','Miyagawacho'),'street'],
+    [34.99190,135.77247,t('清水五条','Kiyomizu-Gojo'),'train'],[35.00366,135.77113,t('祇園四条','Gion-Shijo'),'train'],
+    [35.01000,135.78335,t('青蓮院','Shoren-in'),'temple'],[34.99640,135.78447,t('地主神社','Jishu Shrine'),'shrine'],
+    [34.98877,135.78286,t('京都女子大学',"Kyoto Women's University"),'school'],[35.01150,135.78081,t('東山','Higashiyama Station'),'train'],
+    [35.01170,135.78581,t('岡崎公園','Okazaki Park'),'park'],[34.99083,135.77287,t('豊国神社','Toyokuni Shrine'),'shrine']
   ];
   const riverLabels = [
     [35.0011,135.77055],[34.9933,135.76788],[35.0090,135.77220]
@@ -602,10 +603,14 @@
   function routeBadge({route,points},reserved) {
     if(points.length<2)return;
     const compact=width<650, color=route.color||'#087e83';
-    const label=Array.from(route.name);
-    const limit=compact?8:13;
-    const title=label.length>limit?label.slice(0,limit).join('')+'…':route.name;
     ctx.font=fonts(compact?11.7:12.7,680);
+    const maxWidth=compact?106:160;
+    let title=route.name;
+    if(ctx.measureText(title).width>maxWidth){
+      const letters=Array.from(title).slice(0,60);
+      while(letters.length && ctx.measureText(letters.join('')+'…').width>maxWidth)letters.pop();
+      title=letters.join('')+'…';
+    }
     const w=36+ctx.measureText(title).width,h=compact?25:28;
     const cumulative=[0];
     for(let i=1;i<points.length;i++){
@@ -652,13 +657,13 @@
     for(const [lat,lng,name,english] of districts){
       const [x,y]=loc(lat,lng);
       if(!onscreen(x,y))continue;
-      textLabel(name,x,y,fonts(width<620?15:18,600),'#9d9e97','center',3,'rgba(245,245,238,.80)');
-      textLabel(english,x,y+15,fonts(8,600),'#989b93','center',2,'rgba(245,245,238,.8)');
+      textLabel(t(name,english.replaceAll(' ','')),x,y,fonts(width<620?15:18,600),'#9d9e97','center',3,'rgba(245,245,238,.80)');
+      if(!en)textLabel(english,x,y+15,fonts(8,600),'#989b93','center',2,'rgba(245,245,238,.8)');
     }
     for(const [lat,lng] of riverLabels){
       const [x,y]=loc(lat,lng);if(!onscreen(x,y))continue;
       ctx.save();ctx.translate(x,y);ctx.rotate(-1.33);
-      textLabel('鴨 川',0,0,fonts(12,600),'#6a999d','center',2,'#c4e1df');ctx.restore();
+      textLabel(t('鴨 川','Kamo River'),0,0,fonts(12,600),'#6a999d','center',2,'#c4e1df');ctx.restore();
     }
   }
 
@@ -708,7 +713,7 @@
     for(const r of sorted){
       const name=r.place.short || r.place.name;
       const main=r.stop || r.sel,high=main||r.coffee||r.marked;
-      const second=main && (scale>.48 || width>650) ? r.place.en:'';
+      const second=!en && main && (scale>.48 || width>650) ? r.place.en:'';
       const fs=main?15:r.coffee?13:12;
       const primary=fonts(fs,high?690:590);
       ctx.font=primary;let w=ctx.measureText(name).width;

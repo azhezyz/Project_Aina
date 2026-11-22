@@ -1,10 +1,11 @@
 (() => {
   "use strict";
+  const {t} = window.atlasLocale;
 
   // Directions are directional and live only for this page session.
   const entries = new Map();
   const changedRoutes = new Set();
-  const caution = "步行路线可能缺少人行道或步行道。";
+  const caution = t("步行路线可能缺少人行道或步行道。", "This walking route may include streets without sidewalks or footpaths.");
   let wanted = new Map(), running = 0, version = 0;
   let updateScheduled = false;
   const enabled = () => window.AINA_CONFIG?.googleWalkingRoutesEnabled === true &&
@@ -46,7 +47,7 @@
       ? await window.atlasGoogle.load("places") : {};
     const endpoint = p => p.googlePlaceId ? new Place({id: p.googlePlaceId}) : {lat: p.lat, lng: p.lng};
     const {routes} = await Route.computeRoutes({
-      origin: endpoint(from), destination: endpoint(to), travelMode: "WALKING",
+      origin: endpoint(from), destination: endpoint(to), travelMode: "WALKING", language: window.atlasLocale.lang,
       fields: ["path", "distanceMeters", "durationMillis", "warnings"]
     });
     const route = routes?.[0];
