@@ -1,0 +1,98 @@
+.aw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  overflow: hidden;
+}
+.aw-window {
+  --aw-ink: #182d25;
+  container: aina-place-window / inline-size;
+  color-scheme: only light;
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: clamp(295px, 26vw, 358px);
+  display: flex;
+  flex-direction: column;
+  max-height: min(74dvh, calc(100% - 16px));
+  overflow: hidden;
+  border-radius: 19px;
+  border: 1px solid rgb(41 66 52 / 19%);
+  background: #fff;
+  color: var(--aw-ink);
+  box-shadow: 0 5px 18px rgb(30 51 39 / 12%), 0 1px 3px rgb(30 51 39 / 8%);
+  pointer-events: auto;
+}
+.aw-window[data-front] {
+  border-color: rgb(58 89 72 / 40%);
+  box-shadow: 0 13px 36px -8px rgb(30 51 39 / 29%), 0 2px 6px rgb(30 51 39 / 8%);
+}
+.aw-window button, .aw-window a { font-family: inherit; color: inherit; }
+.aw-window button { -webkit-appearance: none; appearance: none; }
+.aw-window button:focus-visible, .aw-window a:focus-visible, .aw-titlebar:focus-visible {
+  outline: 2px solid #0a8185; outline-offset: -2px;
+}
+.aw-window svg {
+  display: block; width: 17px; height: 17px; flex: 0 0 auto;
+  stroke: currentColor; fill: none; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round;
+}
+.aw-window [hidden] { display: none !important; }
+.aw-titlebar {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  min-height: 55px; padding: 12px 9px 12px 16px; margin: 0;
+  border-bottom: 1px solid #e4eae5; user-select: none; touch-action: none; cursor: grab;
+  background: #fff;
+}
+.aw-folded .aw-titlebar { border-bottom-color: transparent; }
+.aw-window[data-moving] .aw-titlebar { cursor: grabbing; }
+.aw-grip {
+  flex: 0 0 9px; height: 13px; color: #a9b6ad;
+  background: radial-gradient(circle, currentColor 1.2px, transparent 1.4px) 0 0 / 4.5px 4.5px;
+}
+.aw-identity { flex: 1; min-width: 0; }
+.aw-context { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 4px; color: #526758; font-size: 11px; font-weight: 600; }
+.aw-context::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: .06em; background: var(--aw-route-color); }
+.aw-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; margin: 0; font: 600 24px/1.2 "STIX Two Text", Georgia, "Songti SC", "Noto Serif CJK SC", SimSun, serif; }
+.aw-folded .aw-titlebar { min-height: 40px; padding-block: 6px; }
+.aw-folded .aw-context { display: none; }
+.aw-folded .aw-title { font-size: 16px; -webkit-line-clamp: 1; }
+.aw-window[data-named] .pc-local > .pc-title { display: none; }
+.aw-controls { display: flex; flex: none; gap: 3px; }
+@container aina-place-window (max-width: 335px) {
+  .aw-window:not(.aw-folded) .aw-titlebar {
+    display: grid; grid-template-columns: minmax(0, 1fr) 9px auto;
+    grid-template-areas: "context grip tools" "title title title";
+    gap: 4px 7px; padding-block: 8px 12px;
+  }
+  .aw-identity { display: contents; }
+  .aw-folded .aw-identity { display: block; }
+  .aw-context { grid-area: context; margin: 0; }
+  .aw-title { grid-area: title; }
+  .aw-grip { grid-area: grip; }
+  .aw-controls { grid-area: tools; }
+}
+.aw-window .aw-icon-btn {
+  display: grid; place-items: center; width: 27px; height: 27px;
+  border: 1px solid #dde5de; border-radius: 50%; padding: 0; color: #42564a; background: #fff;
+}
+.aw-icon-btn svg { width: 14px; height: 14px; }
+.aw-window .aw-icon-btn:hover { color: #263c35; background: #e9eeeb; }
+.aw-body { overflow-y: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #c7d2c9 transparent; }
+.aw-info { display: flex; flex-direction: column; min-height: 0; }
+.aw-place-info { min-width: 0; }
+.aw-place-info > .pc-local { padding: 14px 16px 17px; }
+.aw-place-info .google-card-message, .aw-place-info .google-card-retry { margin-inline: 12px; }
+.aw-window .aw-small-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 32px; padding: 5px 8px; border: 1px solid transparent; border-radius: 8px;
+  font-size: 13px; line-height: 1.2; font-weight: 550; cursor: pointer; text-decoration: none;
+}
+.aw-small-btn svg { width: 15px; height: 15px; }
+.aw-window .aw-small-btn { color: #43594d; background: #f1f5f2; }
+.aw-window .aw-small-btn:hover { background: #e4ece8; }
+.aw-window .aw-pin[aria-pressed="true"] { color: #0b686b; background: #dcefed; border-color: #c4e2dd; }
+.aw-reading { width: min(440px,47vw); }
+.aw-web { padding: 9px; }
+.aw-web-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.aw-frame { display: block; width: 100%; height: clamp(140px,40vh,360px); border: 1px solid #e2e9e5; border-radius: 8px; background: white; }
+@media (max-width: 759.98px) { .aw-layer { display: none; } }

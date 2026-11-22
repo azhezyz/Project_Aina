@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+*.dpapi
+/web/local-config.js
+/cloud/budget-cutoff/

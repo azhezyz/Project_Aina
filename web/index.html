@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f4ee">
+  <title>Project Aina · 步行旅行地图</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%235551ab'/%3E%3Cpath d='m11 31 7-16 11 14 8-15' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="sheet.css">
+  <link rel="stylesheet" href="panels.css">
+  <link rel="stylesheet" href="windows.css">
+  <link rel="stylesheet" href="place-card.css">
+  <link rel="stylesheet" href="google-basemap.css">
+</head>
+<body>
+  <main id="atlas" aria-label="步行旅行地图">
+    <canvas id="map" tabindex="0" aria-label="京都东山步行地图，可拖动或缩放。按斜线搜索地点，按向上方向键打开卡片。"></canvas>
+    <form id="search" role="search" autocomplete="off">
+      <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.5" cy="10.5" r="6.7"/><path d="m15.8 15.8 4.5 4.5" stroke-linecap="round"/></svg>
+      <input id="query" type="search" aria-label="搜索地点或路线" placeholder="搜索地点或路线" enterkeyhint="search" spellcheck="false" maxlength="90">
+      <kbd aria-hidden="true">/</kbd>
+    </form>
+    <button id="editing-chip" type="button" hidden title="展开路线编辑"><i></i><span>正在规划</span><strong></strong><small></small></button>
+    <div id="place-windows"></div>
+    <div class="credit"><span id="walking-map-note" hidden>步行路线可能缺少人行道或步行道。</span><button id="map-source" type="button" aria-live="polite" title="查看 Google 地图连接设置">京都步行地图</button><b>·</b><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">步行路网 © OpenStreetMap 贡献者</a></div>
+    <section id="sheet" class="sheet" aria-label="地图卡片">
+      <button id="sheet-handle" class="sheet-handle" type="button" title="单击切换高度，双击关闭全部地点窗口" aria-label="调整卡片高度，双击关闭全部地点窗口"><span></span></button>
+      <div id="sheet-body" class="sheet-body"></div>
+    </section>
+    <div id="delete-feedback" class="undo-banner" hidden><span id="deleted-name" role="status"></span><button id="undo-delete" type="button">撤销</button></div>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  </main>
+  <dialog id="google-settings" class="pc-dialog" aria-labelledby="pc-settings-title">
+    <form id="google-key-form">
+      <div class="pc-dialog-heading"><h2 id="pc-settings-title">连接 Google 地图</h2><button aria-label="关闭设置" type="button" data-dismiss>×</button></div>
+      <p>让地点卡片显示 Google 提供的照片、评分、地址、官网和营业时间。各地点的可用资料有所不同。</p>
+      <label for="google-browser-key">Google Maps 浏览器 API 密钥</label>
+      <input type="password" id="google-browser-key" autocomplete="off" spellcheck="false" placeholder="输入当前标签页要使用的密钥">
+      <p class="pc-help">此处输入的密钥只保存在当前标签页。请在 Google Cloud 启用 Maps JavaScript API、Places UI Kit、Places API（新版）和 Routes API，并将浏览器密钥限制到本网站。</p>
+      <div class="pc-restrict"><code id="current-referrer"></code></div>
+      <p class="pc-help"><a href="https://developers.google.com/maps/documentation/javascript/places-ui-kit/get-started" target="_blank" rel="noopener noreferrer">Google 官方设置指南</a>。常规密钥按 Google Cloud 项目计费。Demo Key 仅供测试，无法显示用户上传的照片和评论。</p>
+      <p id="google-key-status" role="status"></p>
+      <div class="pc-dialog-buttons"><button type="button" id="google-disconnect">断开连接</button><button type="submit" class="pc-primary">应用密钥</button></div>
+    </form>
+  </dialog>
+  <dialog id="place-photo-view" class="pc-dialog pc-photo-dialog" aria-label="地点实景照片"><div class="pc-dialog-heading"><h2></h2><button type="button" data-dismiss aria-label="关闭实景照片">×</button></div><img alt=""><div class="pc-photo-caption"></div></dialog>
+  <script src="/local-config.js"></script>
+  <script src="project-features.js"></script>
+  <script src="places.js"></script>
+  <script src="saved-places.js"></script>
+  <script src="photo-catalog.js"></script>
+  <script src="google-cards.js"></script>
+  <script src="place-card.js"></script>
+  <script src="map-data.js"></script>
+  <script src="walking-network-data.js"></script>
+  <script src="walking-network.js"></script>
+  <script src="google-walking.js"></script>
+  <script src="map-native.js"></script>
+  <script src="map.js"></script>
+  <script src="sheet.js"></script>
+  <script src="place-search.js"></script>
+  <script src="panels.js"></script>
+  <script src="windows.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
